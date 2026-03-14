@@ -1,0 +1,1146 @@
+{
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "language",
+    "outcome",
+    "steps",
+    "stdout",
+    "stderr",
+    "objects",
+    "durationMs",
+    "complete"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1,
+      "type": "number"
+    },
+    "language": {
+      "anyOf": [
+        {
+          "const": "python",
+          "type": "string"
+        },
+        {
+          "const": "cpp",
+          "type": "string"
+        }
+      ]
+    },
+    "outcome": {
+      "anyOf": [
+        {
+          "const": "completed",
+          "type": "string"
+        },
+        {
+          "const": "syntax_error",
+          "type": "string"
+        },
+        {
+          "const": "runtime_error",
+          "type": "string"
+        },
+        {
+          "const": "input_error",
+          "type": "string"
+        },
+        {
+          "const": "compile_error",
+          "type": "string"
+        },
+        {
+          "const": "timeout",
+          "type": "string"
+        },
+        {
+          "const": "trace_limit",
+          "type": "string"
+        },
+        {
+          "const": "output_limit",
+          "type": "string"
+        },
+        {
+          "const": "trace_size_limit",
+          "type": "string"
+        },
+        {
+          "const": "memory_limit",
+          "type": "string"
+        },
+        {
+          "const": "stopped",
+          "type": "string"
+        },
+        {
+          "const": "infrastructure_error",
+          "type": "string"
+        }
+      ]
+    },
+    "steps": {
+      "maxItems": 10000,
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["index", "kind", "line", "frameId", "frames", "objects"],
+        "properties": {
+          "index": {
+            "minimum": 0,
+            "maximum": 9999,
+            "type": "integer"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "const": "call",
+                "type": "string"
+              },
+              {
+                "const": "line",
+                "type": "string"
+              },
+              {
+                "const": "return",
+                "type": "string"
+              },
+              {
+                "const": "exception",
+                "type": "string"
+              }
+            ]
+          },
+          "line": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "frameId": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "frames": {
+            "maxItems": 128,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "id",
+                "function",
+                "line",
+                "locals",
+                "changes",
+                "truncated"
+              ],
+              "properties": {
+                "id": {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                "function": {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                "line": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "locals": {
+                  "maxProperties": 256,
+                  "type": "object",
+                  "patternProperties": {
+                    "^(.*)$": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": ["kind", "type", "value"],
+                          "properties": {
+                            "kind": {
+                              "const": "scalar",
+                              "type": "string"
+                            },
+                            "type": {
+                              "maxLength": 100,
+                              "type": "string"
+                            },
+                            "value": {
+                              "maxLength": 4096,
+                              "type": "string"
+                            },
+                            "truncated": {
+                              "type": "boolean"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": ["kind", "id"],
+                          "properties": {
+                            "kind": {
+                              "const": "ref",
+                              "type": "string"
+                            },
+                            "id": {
+                              "maxLength": 100,
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": ["kind", "type", "reason"],
+                          "properties": {
+                            "kind": {
+                              "const": "unavailable",
+                              "type": "string"
+                            },
+                            "type": {
+                              "maxLength": 100,
+                              "type": "string"
+                            },
+                            "reason": {
+                              "maxLength": 300,
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "changes": {
+                  "maxProperties": 512,
+                  "type": "object",
+                  "patternProperties": {
+                    "^(.*)$": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["before", "after"],
+                      "properties": {
+                        "before": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": ["kind", "type", "value"],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "scalar",
+                                      "type": "string"
+                                    },
+                                    "type": {
+                                      "maxLength": 100,
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "maxLength": 4096,
+                                      "type": "string"
+                                    },
+                                    "truncated": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "ref",
+                                      "type": "string"
+                                    },
+                                    "id": {
+                                      "maxLength": 100,
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": ["kind", "type", "reason"],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "unavailable",
+                                      "type": "string"
+                                    },
+                                    "type": {
+                                      "maxLength": 100,
+                                      "type": "string"
+                                    },
+                                    "reason": {
+                                      "maxLength": 300,
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "after": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": ["kind", "type", "value"],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "scalar",
+                                      "type": "string"
+                                    },
+                                    "type": {
+                                      "maxLength": 100,
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "maxLength": 4096,
+                                      "type": "string"
+                                    },
+                                    "truncated": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": ["kind", "id"],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "ref",
+                                      "type": "string"
+                                    },
+                                    "id": {
+                                      "maxLength": 100,
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": ["kind", "type", "reason"],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "unavailable",
+                                      "type": "string"
+                                    },
+                                    "type": {
+                                      "maxLength": 100,
+                                      "type": "string"
+                                    },
+                                    "reason": {
+                                      "maxLength": 300,
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "objects": {
+            "maxProperties": 256,
+            "type": "object",
+            "patternProperties": {
+              "^(.*)$": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["id", "type", "truncated"],
+                "properties": {
+                  "id": {
+                    "maxLength": 100,
+                    "type": "string"
+                  },
+                  "type": {
+                    "maxLength": 100,
+                    "type": "string"
+                  },
+                  "length": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "items": {
+                    "maxItems": 128,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": ["kind", "type", "value"],
+                          "properties": {
+                            "kind": {
+                              "const": "scalar",
+                              "type": "string"
+                            },
+                            "type": {
+                              "maxLength": 100,
+                              "type": "string"
+                            },
+                            "value": {
+                              "maxLength": 4096,
+                              "type": "string"
+                            },
+                            "truncated": {
+                              "type": "boolean"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": ["kind", "id"],
+                          "properties": {
+                            "kind": {
+                              "const": "ref",
+                              "type": "string"
+                            },
+                            "id": {
+                              "maxLength": 100,
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": ["kind", "type", "reason"],
+                          "properties": {
+                            "kind": {
+                              "const": "unavailable",
+                              "type": "string"
+                            },
+                            "type": {
+                              "maxLength": 100,
+                              "type": "string"
+                            },
+                            "reason": {
+                              "maxLength": 300,
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "entries": {
+                    "maxItems": 128,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["key", "value"],
+                      "properties": {
+                        "key": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": ["kind", "type", "value"],
+                              "properties": {
+                                "kind": {
+                                  "const": "scalar",
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "maxLength": 100,
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "maxLength": 4096,
+                                  "type": "string"
+                                },
+                                "truncated": {
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": ["kind", "id"],
+                              "properties": {
+                                "kind": {
+                                  "const": "ref",
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "maxLength": 100,
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": ["kind", "type", "reason"],
+                              "properties": {
+                                "kind": {
+                                  "const": "unavailable",
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "maxLength": 100,
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "maxLength": 300,
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "value": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": ["kind", "type", "value"],
+                              "properties": {
+                                "kind": {
+                                  "const": "scalar",
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "maxLength": 100,
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "maxLength": 4096,
+                                  "type": "string"
+                                },
+                                "truncated": {
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": ["kind", "id"],
+                              "properties": {
+                                "kind": {
+                                  "const": "ref",
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "maxLength": 100,
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": ["kind", "type", "reason"],
+                              "properties": {
+                                "kind": {
+                                  "const": "unavailable",
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "maxLength": 100,
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "maxLength": 300,
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "attributes": {
+                    "maxProperties": 128,
+                    "type": "object",
+                    "patternProperties": {
+                      "^(.*)$": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": ["kind", "type", "value"],
+                            "properties": {
+                              "kind": {
+                                "const": "scalar",
+                                "type": "string"
+                              },
+                              "type": {
+                                "maxLength": 100,
+                                "type": "string"
+                              },
+                              "value": {
+                                "maxLength": 4096,
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": ["kind", "id"],
+                            "properties": {
+                              "kind": {
+                                "const": "ref",
+                                "type": "string"
+                              },
+                              "id": {
+                                "maxLength": 100,
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": ["kind", "type", "reason"],
+                            "properties": {
+                              "kind": {
+                                "const": "unavailable",
+                                "type": "string"
+                              },
+                              "type": {
+                                "maxLength": 100,
+                                "type": "string"
+                              },
+                              "reason": {
+                                "maxLength": 300,
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "truncated": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          "returnValue": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["kind", "type", "value"],
+                "properties": {
+                  "kind": {
+                    "const": "scalar",
+                    "type": "string"
+                  },
+                  "type": {
+                    "maxLength": 100,
+                    "type": "string"
+                  },
+                  "value": {
+                    "maxLength": 4096,
+                    "type": "string"
+                  },
+                  "truncated": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["kind", "id"],
+                "properties": {
+                  "kind": {
+                    "const": "ref",
+                    "type": "string"
+                  },
+                  "id": {
+                    "maxLength": 100,
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["kind", "type", "reason"],
+                "properties": {
+                  "kind": {
+                    "const": "unavailable",
+                    "type": "string"
+                  },
+                  "type": {
+                    "maxLength": 100,
+                    "type": "string"
+                  },
+                  "reason": {
+                    "maxLength": 300,
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "exception": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["type", "message", "line"],
+            "properties": {
+              "type": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "message": {
+                "maxLength": 16384,
+                "type": "string"
+              },
+              "line": {
+                "anyOf": [
+                  {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "traceback": {
+                "maxLength": 32768,
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "stdout": {
+      "maxLength": 262144,
+      "type": "string"
+    },
+    "stderr": {
+      "maxLength": 262144,
+      "type": "string"
+    },
+    "error": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["type", "message", "line"],
+      "properties": {
+        "type": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 16384,
+          "type": "string"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "traceback": {
+          "maxLength": 32768,
+          "type": "string"
+        }
+      }
+    },
+    "returnValue": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["kind", "type", "value"],
+          "properties": {
+            "kind": {
+              "const": "scalar",
+              "type": "string"
+            },
+            "type": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "value": {
+              "maxLength": 4096,
+              "type": "string"
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["kind", "id"],
+          "properties": {
+            "kind": {
+              "const": "ref",
+              "type": "string"
+            },
+            "id": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["kind", "type", "reason"],
+          "properties": {
+            "kind": {
+              "const": "unavailable",
+              "type": "string"
+            },
+            "type": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "reason": {
+              "maxLength": 300,
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "objects": {
+      "maxProperties": 256,
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["id", "type", "truncated"],
+          "properties": {
+            "id": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "type": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "length": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "items": {
+              "maxItems": 128,
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": ["kind", "type", "value"],
+                    "properties": {
+                      "kind": {
+                        "const": "scalar",
+                        "type": "string"
+                      },
+                      "type": {
+                        "maxLength": 100,
+                        "type": "string"
+                      },
+                      "value": {
+                        "maxLength": 4096,
+                        "type": "string"
+                      },
+                      "truncated": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": ["kind", "id"],
+                    "properties": {
+                      "kind": {
+                        "const": "ref",
+                        "type": "string"
+                      },
+                      "id": {
+                        "maxLength": 100,
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": ["kind", "type", "reason"],
+                    "properties": {
+                      "kind": {
+                        "const": "unavailable",
+                        "type": "string"
+                      },
+                      "type": {
+                        "maxLength": 100,
+                        "type": "string"
+                      },
+                      "reason": {
+                        "maxLength": 300,
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "entries": {
+              "maxItems": 128,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["key", "value"],
+                "properties": {
+                  "key": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": ["kind", "type", "value"],
+                        "properties": {
+                          "kind": {
+                            "const": "scalar",
+                            "type": "string"
+                          },
+                          "type": {
+                            "maxLength": 100,
+                            "type": "string"
+                          },
+                          "value": {
+                            "maxLength": 4096,
+                            "type": "string"
+                          },
+                          "truncated": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": ["kind", "id"],
+                        "properties": {
+                          "kind": {
+                            "const": "ref",
+                            "type": "string"
+                          },
+                          "id": {
+                            "maxLength": 100,
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": ["kind", "type", "reason"],
+                        "properties": {
+                          "kind": {
+                            "const": "unavailable",
+                            "type": "string"
+                          },
+                          "type": {
+                            "maxLength": 100,
+                            "type": "string"
+                          },
+                          "reason": {
+                            "maxLength": 300,
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": ["kind", "type", "value"],
+                        "properties": {
+                          "kind": {
+                            "const": "scalar",
+                            "type": "string"
+                          },
+                          "type": {
+                            "maxLength": 100,
+                            "type": "string"
+                          },
+                          "value": {
+                            "maxLength": 4096,
+                            "type": "string"
+                          },
+                          "truncated": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": ["kind", "id"],
+                        "properties": {
+                          "kind": {
+                            "const": "ref",
+                            "type": "string"
+                          },
+                          "id": {
+                            "maxLength": 100,
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": ["kind", "type", "reason"],
+                        "properties": {
+                          "kind": {
+                            "const": "unavailable",
+                            "type": "string"
+                          },
+                          "type": {
+                            "maxLength": 100,
+                            "type": "string"
+                          },
+                          "reason": {
+                            "maxLength": 300,
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "attributes": {
+              "maxProperties": 128,
+              "type": "object",
+              "patternProperties": {
+                "^(.*)$": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["kind", "type", "value"],
+                      "properties": {
+                        "kind": {
+                          "const": "scalar",
+                          "type": "string"
+                        },
+                        "type": {
+                          "maxLength": 100,
+                          "type": "string"
+                        },
+                        "value": {
+                          "maxLength": 4096,
+                          "type": "string"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["kind", "id"],
+                      "properties": {
+                        "kind": {
+                          "const": "ref",
+                          "type": "string"
+                        },
+                        "id": {
+                          "maxLength": 100,
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["kind", "type", "reason"],
+                      "properties": {
+                        "kind": {
+                          "const": "unavailable",
+                          "type": "string"
+                        },
+                        "type": {
+                          "maxLength": 100,
+                          "type": "string"
+                        },
+                        "reason": {
+                          "maxLength": 300,
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "durationMs": {
+      "minimum": 0,
+      "type": "number"
+    },
+    "complete": {
+      "type": "boolean"
+    }
+  }
+}

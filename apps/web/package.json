@@ -10,11 +10,14 @@
   },
   "dependencies": {
     "@codemirror/commands": "6.11.0",
+    "@codemirror/lang-cpp": "6.0.3",
     "@codemirror/lang-python": "6.2.1",
     "@codemirror/language": "6.12.4",
     "@codemirror/state": "6.7.4",
     "@codemirror/view": "6.43.11",
+    "@debugroom/contracts": "1.0.0",
     "@lezer/highlight": "1.2.3",
+    "lucide-react": "1.45.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

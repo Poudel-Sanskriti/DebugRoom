@@ -3,3 +3,11 @@ dist/
 .DS_Store
 *.local
 coverage/
+
+.data/
+.env
+.venv/
+__pycache__/
+*.pyc
+test-results/
+playwright-report/
