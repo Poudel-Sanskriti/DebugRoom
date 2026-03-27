@@ -8,11 +8,18 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w apps/web",
-    "build": "npm run build -w apps/web",
-    "test": "npm run test -w apps/web",
+    "dev": "node --import tsx scripts/dev.ts",
+    "build": "npm run typecheck -w @debugroom/api && npm run build -w @debugroom/web",
+    "test": "npm run test:web && npm run test:api && npm run test:python && npm run test:contracts",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "dev:web": "npm run dev -w @debugroom/web",
+    "dev:api": "node --import tsx apps/api/src/server.ts",
+    "dev:worker": "node --import tsx scripts/run-worker.ts",
+    "test:web": "npm test -w @debugroom/web",
+    "test:api": "npm test -w @debugroom/api",
+    "test:python": "python3 -m unittest discover -s runner/python -p 'test_*.py'",
+    "test:contracts": "node --import tsx --test packages/contracts/src/contract.test.ts"
   },
   "devDependencies": {
     "@types/node": "26.5.1",
