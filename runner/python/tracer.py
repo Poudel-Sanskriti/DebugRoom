@@ -185,6 +185,7 @@ def main():
         if key in job.get("limits", {}):
             policy[key] = max(1, min(policy[key], job["limits"][key]))
     collector = Collector(policy)
+    emit({"type": "started"})
     sys.stdout = Output(collector, "stdout")
     sys.stderr = Output(collector, "stderr")
     supplied = job.get("input", {})
