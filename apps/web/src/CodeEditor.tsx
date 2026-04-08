@@ -10,6 +10,7 @@ import {
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { tags } from "@lezer/highlight";
+import { cpp } from "@codemirror/lang-cpp";
 import { python } from "@codemirror/lang-python";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 
@@ -17,12 +18,22 @@ type Props = {
   value: string;
   onChange: (value: string) => void;
   activeLine?: number;
+  readOnly?: boolean;
+  language?: "python" | "cpp";
 };
-export default function CodeEditor({ value, onChange, activeLine }: Props) {
+export default function CodeEditor({
+  value,
+  onChange,
+  activeLine,
+  readOnly = false,
+  language = "python",
+}: Props) {
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<EditorView | null>(null);
   const changeHandler = useRef(onChange);
   const lineHighlight = useRef(new Compartment());
+  const configuration = useRef(new Compartment());
+  const syncing = useRef(false);
   changeHandler.current = onChange;
 
   useEffect(() => {
@@ -35,7 +46,14 @@ export default function CodeEditor({ value, onChange, activeLine }: Props) {
           highlightActiveLineGutter(),
           history(),
           keymap.of([...defaultKeymap, ...historyKeymap]),
-          python(),
+          configuration.current.of([
+            language === "python" ? python() : cpp(),
+            EditorState.readOnly.of(readOnly),
+            EditorView.editable.of(!readOnly),
+            EditorView.contentAttributes.of({
+              "aria-label": readOnly ? "Run source" : "Program code",
+            }),
+          ]),
           syntaxHighlighting(
             HighlightStyle.define([
               { tag: tags.keyword, color: "#c4a1ff" },
@@ -46,10 +64,9 @@ export default function CodeEditor({ value, onChange, activeLine }: Props) {
             ]),
           ),
           placeholder("# Paste your Python code here"),
-          EditorView.contentAttributes.of({ "aria-label": "Python code" }),
           lineHighlight.current.of([]),
           EditorView.updateListener.of((update) => {
-            if (update.docChanged)
+            if (update.docChanged && !syncing.current)
               changeHandler.current(update.state.doc.toString());
           }),
           EditorView.theme(
@@ -99,16 +116,33 @@ export default function CodeEditor({ value, onChange, activeLine }: Props) {
 
   useEffect(() => {
     const view = editor.current;
-    if (view && view.state.doc.toString() !== value)
+    if (view && view.state.doc.toString() !== value) {
+      syncing.current = true;
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: value },
       });
+      syncing.current = false;
+    }
   }, [value]);
+  useEffect(() => {
+    editor.current?.dispatch({
+      effects: configuration.current.reconfigure([
+        language === "python" ? python() : cpp(),
+        EditorState.readOnly.of(readOnly),
+        EditorView.editable.of(!readOnly),
+        EditorView.contentAttributes.of({
+          "aria-label": readOnly ? "Run source" : "Program code",
+        }),
+      ]),
+    });
+  }, [readOnly, language]);
   useEffect(() => {
     const view = editor.current;
     if (!view) return;
     const validLine =
-      activeLine && activeLine <= view.state.doc.lines ? activeLine : undefined;
+      activeLine && activeLine > 0 && activeLine <= view.state.doc.lines
+        ? activeLine
+        : undefined;
     const decorations = validLine
       ? Decoration.set([
           Decoration.line({ class: "cm-trace-line" }).range(
@@ -121,6 +155,13 @@ export default function CodeEditor({ value, onChange, activeLine }: Props) {
         EditorView.decorations.of(decorations),
       ),
     });
+    if (validLine)
+      view.dispatch({
+        effects: EditorView.scrollIntoView(
+          view.state.doc.line(validLine).from,
+          { y: "nearest" },
+        ),
+      });
   }, [activeLine, value]);
   return <div className="code-editor" ref={host} />;
 }

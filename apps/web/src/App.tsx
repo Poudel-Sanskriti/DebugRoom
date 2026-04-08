@@ -1,31 +1,200 @@
-import { useState } from "react";
-import CodeEditor from "./CodeEditor";
-import { demo } from "./demo";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import {
+  BookOpen,
+  Check,
+  ChevronDown,
+  Circle,
+  Code2,
+  Download,
+  FileCode2,
+  FlaskConical,
+  History,
+  LoaderCircle,
+  Plus,
+  Save,
+  ShieldCheck,
+  Square,
+  Terminal,
+  X,
+  AlertTriangle,
+  FolderOpen,
+  GitBranch,
+  Play,
+  RotateCw,
+} from "lucide-react";
+import { useWorkspace } from "./hooks/useWorkspace";
+import TraceInspector, { outcomeName } from "./components/TraceInspector";
+import { examples } from "./examples";
+import { api } from "./api";
+import type { Draft, Run } from "@debugroom/contracts";
+import "./styles.css";
+const CodeEditor = lazy(() => import("./CodeEditor"));
+const sameSource = (left: Draft | null, right: Draft | undefined) =>
+  !!left &&
+  !!right &&
+  left.code === right.code &&
+  left.input === right.input &&
+  left.language === right.language &&
+  left.entryPoint === right.entryPoint;
 
 export default function App() {
-  const [code, setCode] = useState("");
-  const [input, setInput] = useState("");
-  const [problem, setProblem] = useState("");
-  const [demoLoaded, setDemoLoaded] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  // A demo belongs only to its matching source and input. Editing invalidates it.
-  const step = demoLoaded ? demo.steps[selectedIndex] : undefined;
-  function loadDemo() {
-    setCode(demo.code);
-    setInput(demo.input);
-    setProblem(demo.problem);
-    setSelectedIndex(0);
-    setDemoLoaded(true);
+  const model = useWorkspace();
+  const { workspace, branch, draft, run } = model;
+  const [index, setIndex] = useState(0),
+    [sourceView, setSourceView] = useState<"draft" | "run">("draft"),
+    [bottomTab, setBottomTab] = useState<"input" | "problem">("input");
+  const [showHistory, setShowHistory] = useState(false),
+    [functions, setFunctions] = useState<
+      { name: string; signature: string; line: number }[]
+    >([]),
+    [discoveryError, setDiscoveryError] = useState("");
+  const [showReload, setShowReload] = useState(false),
+    [showDirect, setShowDirect] = useState(false),
+    [directUnlocked, setDirectUnlocked] = useState(false);
+  const displayed =
+    sourceView === "run" && run?.snapshot ? run.snapshot : draft;
+  const pending = run?.status === "queued" || run?.status === "running";
+  const readonly =
+    sourceView === "run" ||
+    (workspace?.invitationActive &&
+      model.session?.role === "tutor" &&
+      branch?.kind === "student" &&
+      !directUnlocked);
+  const event = run?.result?.steps[index];
+  const highlight =
+    sourceView === "run" || sameSource(draft, run?.snapshot)
+      ? (event?.line ?? run?.result?.error?.line ?? undefined)
+      : undefined;
+  useEffect(() => {
+    setIndex(0);
+    if (run) setSourceView("run");
+  }, [run?.id]);
+  useEffect(() => {
+    setDirectUnlocked(false);
+    setSourceView("draft");
+  }, [branch?.id]);
+  useEffect(() => {
+    if (!draft?.code.trim() || draft.language !== "python") {
+      setFunctions([]);
+      setDiscoveryError("");
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      api<{
+        functions: { name: string; signature: string; line: number }[];
+        error?: { message: string };
+      }>("/api/functions", {
+        method: "POST",
+        body: { language: "python", code: draft.code },
+        signal: controller.signal,
+      })
+        .then((data) => {
+          setFunctions(data.functions);
+          setDiscoveryError(data.error?.message ?? "");
+        })
+        .catch((error) => {
+          if (error.name !== "AbortError") setDiscoveryError(error.message);
+        });
+    }, 450);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [draft?.code, draft?.language]);
+  const startRun = useCallback(() => {
+    setIndex(0);
+    void model.startRun();
+  }, [model.startRun]);
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        if (draft?.code.trim() && !model.submitting) startRun();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [draft?.code, model.submitting, startRun]);
+  const viewRunSource = useCallback(() => setSourceView("run"), []);
+  function loadExample(id: string) {
+    const example = examples.find((item) => item.id === id);
+    if (example) {
+      setSourceView("draft");
+      model.edit(example.draft);
+      setBottomTab("input");
+    }
   }
-  function updateCode(value: string) {
-    setCode(value);
-    if (value !== demo.code) setDemoLoaded(false);
+  function copyDraft() {
+    if (!draft) return;
+    const blob = new Blob([JSON.stringify(draft, null, 2)], {
+      type: "application/json",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "debugroom-draft.json";
+    link.click();
+    URL.revokeObjectURL(link.href);
   }
-  function updateInput(value: string) {
-    setInput(value);
-    if (value !== demo.input) setDemoLoaded(false);
-  }
-
+  if (model.loading && !workspace)
+    return (
+      <div className="app-loading">
+        <span className="brand-mark">dr</span>
+        <LoaderCircle className="spin" size={24} />
+        <p>Opening your workspace…</p>
+      </div>
+    );
+  if (model.invitation)
+    return (
+      <div className="entry-screen">
+        <div className="entry-card">
+          <span className="brand-mark">dr</span>
+          <h1>Your seat in DebugRoom.</h1>
+          <p>
+            This private invitation opens one learning workspace. No account or
+            email required.
+          </p>
+          {model.error && (
+            <div role="alert" className="error-banner">
+              {model.error}
+            </div>
+          )}
+          <button
+            className="primary"
+            onClick={() => void model.joinInvitation()}
+            disabled={model.loading}
+          >
+            Join workspace <ArrowGlyph />
+          </button>
+        </div>
+      </div>
+    );
+  if (!model.session)
+    return (
+      <div className="entry-screen">
+        <div className="entry-card">
+          <span className="brand-mark">dr</span>
+          <h1>A room for better questions.</h1>
+          <p>
+            Run code, inspect its execution, and work through a problem
+            together.
+          </p>
+          {model.error && (
+            <div role="alert" className="error-banner">
+              {model.error}
+              <button onClick={() => window.location.reload()}>
+                Try again
+              </button>
+            </div>
+          )}
+          {model.config?.githubAuth && (
+            <a className="primary" href="/api/auth/github">
+              Sign in with GitHub
+            </a>
+          )}
+        </div>
+      </div>
+    );
   return (
     <div className="app">
       <header className="topbar">
@@ -35,212 +204,523 @@ export default function App() {
           </span>
           DebugRoom<span className="brand-dot">.</span>
         </a>
-        <div className="workspace-label">PERSONAL WORKSPACE</div>
-        <span className="local-badge">
-          <span />
-          Local prototype
-        </span>
+        <span className="workspace-label">YOUR THINKING SPACE</span>
+        <div className="topbar-right">
+          <span className="connection-badge">
+            <ShieldCheck size={14} /> Isolated execution
+          </span>
+          <span className="avatar" title={model.session.displayName}>
+            {model.session.displayName.slice(0, 1).toUpperCase()}
+          </span>
+        </div>
       </header>
-      <main>
-        <div className="page-heading">
-          <div>
-            <div className="eyebrow">WORKSPACE / PYTHON</div>
-            <h1>A closer look at your code.</h1>
-            <p>Explore what changes, one step at a time.</p>
-          </div>
-          <button className="primary" onClick={loadDemo}>
-            <span aria-hidden="true">↗</span> Load demo
-          </button>
-        </div>
-        <div className="workspace">
-          <section className="workbench" aria-label="Code and input">
-            <div className="problem-panel">
-              <label className="panel-title" htmlFor="problem">
-                <span className="section-number">01</span> Problem{" "}
-                <span className="optional">optional</span>
-              </label>
-              <textarea
-                id="problem"
-                value={problem}
-                onChange={(event) => setProblem(event.target.value)}
-                placeholder="What are you working on? Add a question, constraints, or expected result."
-              />
-            </div>
-            <div className="editor-panel">
-              <div className="editor-toolbar">
-                <span>
-                  <span className="file-icon" aria-hidden="true">
-                    ⌘
-                  </span>{" "}
-                  main.py
-                </span>
-                <span className="language">Python</span>
-              </div>
-              <CodeEditor
-                value={code}
-                onChange={updateCode}
-                activeLine={step?.line}
-              />
-              <div className="editor-footer">
-                <span>
-                  {code ? code.trimEnd().split("\n").length : 0} lines
-                </span>
-                <span>
-                  {step
-                    ? `Inspecting line ${step.line}`
-                    : "Ready for your code"}
-                </span>
-              </div>
-            </div>
-            <div className="input-panel">
-              <div className="input-heading">
-                <label className="panel-title" htmlFor="input">
-                  <span className="section-number">02</span> Input
-                </label>
-                <span className="format-badge">JSON</span>
-              </div>
-              <textarea
-                id="input"
-                spellCheck={false}
-                value={input}
-                onChange={(event) => updateInput(event.target.value)}
-                placeholder={'{ "args": [], "kwargs": {} }'}
-              />
-              <div className="run-row">
-                <span id="run-note">
-                  Python execution is coming in a later step.
-                </span>
-                <button
-                  className="run-button"
-                  disabled
-                  aria-describedby="run-note"
-                >
-                  <span aria-hidden="true">▷</span> Run code
-                </button>
-              </div>
-            </div>
-          </section>
-          <section className="inspector" aria-label="Execution inspector">
-            <div className="inspector-heading">
-              <div className="panel-title">
-                <span className="section-number">03</span> Execution
-              </div>
-              <span className="demo-badge">DEMO MODE</span>
-            </div>
-            <div className="trace-summary">
-              <span className="eyebrow">
-                {step ? "CAPTURED OBSERVATION" : "YOUR EXECUTION, UNPACKED"}
-              </span>
-              <h2>{step ? "Inside add()" : "See the in-between."}</h2>
-              <p>
-                {step
-                  ? "Hand-written demo data. No Python has run."
-                  : "Load the demo to inspect a small function and watch its variables change."}
-              </p>
-            </div>
-            <div className="line-card">
-              <span className="line-symbol" aria-hidden="true">
-                ↳
-              </span>
-              <div>
-                <span className="muted-label">
-                  {step ? "NEXT LINE TO EXECUTE" : "CURRENT LINE"}
-                </span>
-                <strong data-testid="current-line">
-                  {step ? `Line ${step.line}` : "No step selected"}
-                </strong>
-              </div>
-              {step && <span className="line-event">before execution</span>}
-            </div>
-            <div className="variables-heading">
-              <h3>Local variables</h3>
-              <span>{step ? Object.keys(step.locals).length : 0} visible</span>
-            </div>
-            {step ? (
-              <div className="variable-table">
-                <div className="table-header">
-                  <span>NAME</span>
-                  <span>VALUE</span>
-                  <span>TYPE</span>
-                </div>
-                {Object.entries(step.locals).map(([name, value]) => (
-                  <div className="variable-row" key={name}>
-                    <code>{name}</code>
-                    <strong>{value}</strong>
-                    <span>int</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-variables">
-                <span className="empty-symbol" aria-hidden="true">
-                  {"{ }"}
-                </span>
-                <strong>A place for every value</strong>
-                <p>
-                  Variables appear here when you
-                  <br />
-                  load a captured trace.
-                </p>
-              </div>
+      <div className="app-layout">
+        <aside className="workspace-sidebar">
+          <div className="sidebar-heading">
+            <span>WORKSPACES</span>
+            {model.session.role === "tutor" && (
+              <button
+                className="icon-button"
+                aria-label="Create workspace"
+                title="Create workspace"
+                onClick={() => void model.createWorkspace()}
+              >
+                <Plus size={16} />
+              </button>
             )}
-            <div className="inspector-note">
-              <span aria-hidden="true">ⓘ</span>
-              <p>
-                {step
-                  ? "Values describe the moment before the highlighted line runs. Next reads the following observation."
-                  : "The editor starts empty. Try the demo first, or begin writing your own Python."}
-              </p>
+          </div>
+          <nav aria-label="Workspaces">
+            {model.workspaces.map((item) => (
+              <button
+                key={item.id}
+                className={`workspace-link ${workspace?.id === item.id ? "selected" : ""}`}
+                onClick={() => void model.chooseWorkspace(item.id)}
+              >
+                <FolderOpen size={16} />
+                <span>{item.title}</span>
+                {workspace?.id === item.id && <span className="selected-dot" />}
+              </button>
+            ))}
+          </nav>
+          <div className="sidebar-bottom">
+            <div className="sidebar-tip">
+              <FlaskConical size={18} />
+              <strong>Make a small change.</strong>
+              <p>A good experiment starts with one question.</p>
             </div>
-            <div className="playback">
-              <div className="step-status" role="status">
-                <span className={step ? "status-dot active" : "status-dot"} />
+            <span className="session-label">
+              {model.session.role === "tutor"
+                ? "Tutor & solo workspace"
+                : "Private student workspace"}
+            </span>
+          </div>
+        </aside>
+        <main>
+          <div className="page-heading">
+            <div>
+              <div className="eyebrow">
+                <span className="live-dot" /> WORKSPACE /{" "}
+                {draft?.language === "cpp" ? "C++" : "PYTHON"}
+              </div>
+              <h1>{workspace?.title ?? "Your workspace"}</h1>
+            </div>
+            <div className="heading-actions">
+              <span
+                className={`save-indicator ${model.saveState}`}
+                role="status"
+              >
+                {model.saveState === "saving" ? (
+                  <LoaderCircle className="spin" size={14} />
+                ) : model.saveState === "saved" ? (
+                  <Check size={14} />
+                ) : (
+                  <Circle size={10} />
+                )}{" "}
+                {model.saveState === "saved"
+                  ? "All changes saved"
+                  : model.saveState === "saving"
+                    ? "Saving…"
+                    : model.saveState === "conflict"
+                      ? "Save conflict"
+                      : model.saveState === "error"
+                        ? "Not saved"
+                        : "Unsaved changes"}
+              </span>
+              <button
+                className={`secondary ${showHistory ? "selected" : ""}`}
+                onClick={() => setShowHistory((value) => !value)}
+              >
+                <History size={15} /> History{" "}
+                <span className="count-pill">{model.history.length}</span>
+              </button>
+            </div>
+          </div>
+          <select
+            className="mobile-workspaces"
+            aria-label="Choose workspace"
+            value={workspace?.id ?? ""}
+            onChange={(event) => void model.chooseWorkspace(event.target.value)}
+          >
+            {model.workspaces.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.title}
+              </option>
+            ))}
+          </select>
+          {model.error && (
+            <div className="error-banner" role="alert">
+              <AlertTriangle size={17} />
+              <span>{model.error}</span>
+              {model.saveState === "conflict" ? (
+                <>
+                  <button onClick={copyDraft}>
+                    <Download size={14} /> Download my draft
+                  </button>
+                  <button onClick={() => setShowReload(true)}>
+                    Reload saved draft
+                  </button>
+                </>
+              ) : model.saveState === "error" ? (
+                <button onClick={model.retrySave}>Retry save</button>
+              ) : (
+                <button
+                  className="icon-button"
+                  aria-label="Dismiss error"
+                  onClick={() => model.setError("")}
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+          )}
+          {showHistory && (
+            <section className="history-panel" aria-label="Run history">
+              <div className="history-title">
+                <h2>Every run tells a story.</h2>
                 <span>
-                  {step
-                    ? `Step ${selectedIndex + 1} of ${demo.steps.length}`
-                    : "No trace loaded"}
-                </span>
-                <span className="step-kind">
-                  {step ? "line event" : "waiting"}
+                  Results stay attached to the source and input that produced
+                  them.
                 </span>
               </div>
-              <div className="playback-buttons">
-                <button
-                  disabled={!step || selectedIndex === 0}
-                  onClick={() =>
-                    setSelectedIndex((index) => Math.max(0, index - 1))
-                  }
-                >
-                  <span aria-hidden="true">←</span> Previous
-                </button>
-                <button
-                  className="next-button"
-                  disabled={!step || selectedIndex === demo.steps.length - 1}
-                  onClick={() =>
-                    setSelectedIndex((index) =>
-                      Math.min(demo.steps.length - 1, index + 1),
-                    )
-                  }
-                >
-                  Next <span aria-hidden="true">→</span>
-                </button>
-              </div>
+              {model.history.length ? (
+                <div className="history-list">
+                  {model.history.map((item) => (
+                    <button
+                      key={item.id}
+                      className={`history-item ${run?.id === item.id ? "selected" : ""}`}
+                      onClick={() => {
+                        void model.selectRun(item.id);
+                        setSourceView("run");
+                      }}
+                    >
+                      <span
+                        className={`run-dot ${item.outcome === "completed" ? "success" : item.outcome ? "warning" : "pending"}`}
+                      />
+                      <strong>
+                        {item.status === "finished"
+                          ? outcomeName(item.outcome)
+                          : item.status === "running"
+                            ? "Running"
+                            : "Queued"}
+                      </strong>
+                      <code>{item.id.slice(0, 8)}</code>
+                      <span>
+                        {new Date(item.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      <small>
+                        {item.attempt ? `attempt ${item.attempt}` : "queued"}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-history">
+                  Run a program to start an execution history.
+                </p>
+              )}
+            </section>
+          )}
+          {draft && displayed && (
+            <div className="workspace">
+              <section className="workbench" aria-label="Code and input">
+                <div className="workspace-toolbar">
+                  <div
+                    className="source-tabs"
+                    role="tablist"
+                    aria-label="Source view"
+                  >
+                    <button
+                      role="tab"
+                      aria-selected={sourceView === "draft"}
+                      className={sourceView === "draft" ? "active" : ""}
+                      onClick={() => setSourceView("draft")}
+                    >
+                      <Code2 size={14} /> Working draft
+                    </button>
+                    <button
+                      role="tab"
+                      aria-selected={sourceView === "run"}
+                      className={sourceView === "run" ? "active" : ""}
+                      disabled={!run?.snapshot}
+                      onClick={() => setSourceView("run")}
+                    >
+                      <History size={14} /> Run snapshot
+                    </button>
+                  </div>
+                  <label className="examples-select">
+                    <BookOpen size={14} />
+                    <select
+                      aria-label="Load example"
+                      value=""
+                      disabled={!!(readonly && sourceView === "draft")}
+                      onChange={(e) => loadExample(e.target.value)}
+                    >
+                      <option value="" disabled>
+                        Examples
+                      </option>
+                      {examples.map((item) => (
+                        <option value={item.id} key={item.id}>
+                          {item.title}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} />
+                  </label>
+                </div>
+                {sourceView === "run" && run?.snapshot ? (
+                  <div className="source-banner">
+                    <ShieldCheck size={14} />
+                    <span>
+                      Captured source · revision {run.snapshot.revision} ·
+                      read-only
+                    </span>
+                    <button onClick={() => setSourceView("draft")}>
+                      {sameSource(draft, run.snapshot)
+                        ? "Edit draft"
+                        : "Return to newer draft"}{" "}
+                      →
+                    </button>
+                  </div>
+                ) : workspace?.invitationActive &&
+                  model.session.role === "tutor" &&
+                  branch?.kind === "student" &&
+                  !directUnlocked ? (
+                  <div className="source-banner caution">
+                    <GitBranch size={14} />
+                    <span>This is the student copy.</span>
+                    <button onClick={() => setShowDirect(true)}>
+                      Unlock direct editing
+                    </button>
+                  </div>
+                ) : (
+                  <div className="draft-caption">
+                    <span>
+                      {branch?.name ?? "Workspace"}{" "}
+                      <span>· revision {branch?.revision ?? 0}</span>
+                    </span>
+                    <span>Changes save automatically</span>
+                  </div>
+                )}
+                <div className="editor-panel">
+                  <div className="editor-toolbar">
+                    <span>
+                      <FileCode2 size={14} />{" "}
+                      {displayed.language === "cpp" ? "main.cpp" : "main.py"}
+                    </span>
+                    <span className="language">
+                      {displayed.language === "cpp" ? "C++" : "Python 3.14"}
+                    </span>
+                  </div>
+                  <Suspense
+                    fallback={
+                      <div className="editor-loading">Opening editor…</div>
+                    }
+                  >
+                    <CodeEditor
+                      key={`${branch?.id}-${sourceView}-${sourceView === "run" ? run?.id : ""}`}
+                      value={displayed.code}
+                      onChange={(code) => model.edit({ code })}
+                      activeLine={highlight}
+                      readOnly={!!readonly}
+                      language={displayed.language}
+                    />
+                  </Suspense>
+                  <div className="editor-footer">
+                    <span>
+                      {displayed.code
+                        ? displayed.code.trimEnd().split("\n").length
+                        : 0}{" "}
+                      lines
+                    </span>
+                    <span>
+                      {highlight
+                        ? `Inspecting line ${highlight}`
+                        : sourceView === "run"
+                          ? "Captured source"
+                          : "Working draft"}
+                    </span>
+                    <span>UTF-8</span>
+                  </div>
+                </div>
+                <div className="input-panel">
+                  <div className="input-heading">
+                    <div
+                      className="bottom-tabs"
+                      role="tablist"
+                      aria-label="Program context"
+                    >
+                      <button
+                        role="tab"
+                        aria-selected={bottomTab === "input"}
+                        className={bottomTab === "input" ? "active" : ""}
+                        onClick={() => setBottomTab("input")}
+                      >
+                        <Terminal size={14} /> Input
+                      </button>
+                      <button
+                        role="tab"
+                        aria-selected={bottomTab === "problem"}
+                        className={bottomTab === "problem" ? "active" : ""}
+                        onClick={() => setBottomTab("problem")}
+                      >
+                        <BookOpen size={14} /> Problem
+                      </button>
+                    </div>
+                    <span className="format-badge">
+                      {bottomTab === "input" ? "JSON" : "NOTES"}
+                    </span>
+                  </div>
+                  {bottomTab === "input" ? (
+                    <>
+                      <label className="sr-only" htmlFor="input">
+                        Program input
+                      </label>
+                      <textarea
+                        id="input"
+                        spellCheck={false}
+                        readOnly={!!readonly}
+                        value={displayed.input}
+                        onChange={(e) => model.edit({ input: e.target.value })}
+                      />
+                      <p className="input-help">
+                        Pass positional values in <code>args</code> and named
+                        values in <code>kwargs</code>.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <label className="sr-only" htmlFor="problem">
+                        Problem description
+                      </label>
+                      <textarea
+                        id="problem"
+                        className="problem-notes"
+                        readOnly={!!readonly}
+                        value={displayed.problem}
+                        onChange={(e) =>
+                          model.edit({ problem: e.target.value })
+                        }
+                        placeholder="Describe the question, constraints, examples, and expected result."
+                      />
+                    </>
+                  )}
+                  <div className="run-row">
+                    <label className="entry-selector">
+                      <span>ENTRY POINT</span>
+                      <select
+                        aria-label="Entry function"
+                        value={draft.entryPoint ?? ""}
+                        disabled={!!readonly}
+                        onChange={(e) =>
+                          model.edit({ entryPoint: e.target.value || null })
+                        }
+                      >
+                        <option value="">
+                          {functions.length === 1
+                            ? `Auto · ${functions[0]!.name}()`
+                            : "Choose automatically"}
+                        </option>
+                        <option value="__module__">Run as a script</option>
+                        {functions.map((fn) => (
+                          <option key={fn.name} value={fn.name}>
+                            {fn.name}({fn.signature})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {pending ? (
+                      <button
+                        className="stop-button"
+                        onClick={() => void model.stopRun()}
+                      >
+                        <Square size={13} fill="currentColor" /> Stop run
+                      </button>
+                    ) : (
+                      <button
+                        className="primary run-button"
+                        disabled={
+                          !draft.code.trim() ||
+                          model.submitting ||
+                          model.saveState === "conflict"
+                        }
+                        onClick={startRun}
+                      >
+                        <Play size={15} fill="currentColor" />{" "}
+                        {model.submitting ? "Starting…" : "Run code"}
+                        <kbd>⌘ ↵</kbd>
+                      </button>
+                    )}
+                  </div>
+                  {discoveryError && sourceView === "draft" && (
+                    <p className="discovery-note">
+                      Function detection: {discoveryError}
+                    </p>
+                  )}
+                </div>
+              </section>
+              <TraceInspector
+                run={run}
+                index={index}
+                onIndex={setIndex}
+                onViewSource={viewRunSource}
+              />
+            </div>
+          )}
+          <footer className="page-footer">
+            <span>
+              <ShieldCheck size={13} /> Your runs are isolated. Your history
+              stays yours.
+            </span>
+            <span>
+              {workspace && (
+                <>
+                  Expires{" "}
+                  {new Date(workspace.expiresAt).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}{" "}
+                  after inactivity
+                </>
+              )}
+            </span>
+          </footer>
+        </main>
+      </div>
+      {showReload && (
+        <div className="modal-backdrop">
+          <section
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reload-title"
+          >
+            <h2 id="reload-title">Reload the saved draft?</h2>
+            <p>
+              This replaces your unsaved text with the latest server version.
+              Download your draft first if you want to keep it.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="secondary"
+                onClick={() => setShowReload(false)}
+              >
+                Keep editing
+              </button>
+              <button
+                className="primary"
+                onClick={() => {
+                  setShowReload(false);
+                  void model.reloadDraft();
+                }}
+              >
+                Reload saved draft
+              </button>
             </div>
           </section>
         </div>
-        <footer className="page-footer">
-          <span>
-            <span className="footer-mark" aria-hidden="true">
-              ◇
-            </span>{" "}
-            A little less guessing. A little more understanding.
-          </span>
-          <span>
-            Milestone 1.1 <span className="footer-divider">/</span> Fixture
-            playback · changes aren’t saved
-          </span>
-        </footer>
-      </main>
+      )}
+      {showDirect && (
+        <div className="modal-backdrop">
+          <section
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="direct-title"
+          >
+            <h2 id="direct-title">Edit the student copy directly?</h2>
+            <p>
+              A snapshot of the student's current work will be preserved before
+              each of your saves. Your private mentor copy is the usual place
+              for experiments.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="secondary"
+                onClick={() => setShowDirect(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="primary"
+                onClick={() => {
+                  setShowDirect(false);
+                  setDirectUnlocked(true);
+                  model.confirmDirectEdit();
+                }}
+              >
+                Preserve & unlock
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
+}
+function ArrowGlyph() {
+  return <span aria-hidden="true">→</span>;
 }

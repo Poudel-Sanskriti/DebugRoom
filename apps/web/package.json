@@ -16,6 +16,8 @@
     "@codemirror/state": "6.7.4",
     "@codemirror/view": "6.43.11",
     "@debugroom/contracts": "1.0.0",
+    "@fontsource-variable/dm-sans": "5.3.0",
+    "@fontsource-variable/manrope": "5.3.0",
     "@lezer/highlight": "1.2.3",
     "lucide-react": "1.45.0",
     "react": "19.2.8",

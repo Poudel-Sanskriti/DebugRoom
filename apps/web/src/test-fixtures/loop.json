@@ -1,0 +1,952 @@
+{
+  "draft": {
+    "language": "python",
+    "entryPoint": "running_total",
+    "problem": "Add the values in a list. Inspect total before and after each loop iteration.",
+    "input": "{\n  \"args\": [[2, 4, 6]],\n  \"kwargs\": {}\n}",
+    "code": "def running_total(numbers):\n    total = 0\n    for number in numbers:\n        total += number\n        print(\"total:\", total)\n    return total\n"
+  },
+  "result": {
+    "schemaVersion": 1,
+    "language": "python",
+    "steps": [
+      {
+        "index": 0,
+        "kind": "call",
+        "line": 1,
+        "frameId": "f1",
+        "frames": [
+          {
+            "id": "f1",
+            "function": "<module>",
+            "line": 1,
+            "locals": {},
+            "changes": {},
+            "truncated": false
+          }
+        ],
+        "objects": {}
+      },
+      {
+        "index": 1,
+        "kind": "line",
+        "line": 1,
+        "frameId": "f1",
+        "frames": [
+          {
+            "id": "f1",
+            "function": "<module>",
+            "line": 1,
+            "locals": {},
+            "changes": {},
+            "truncated": false
+          }
+        ],
+        "objects": {}
+      },
+      {
+        "index": 2,
+        "kind": "return",
+        "line": 1,
+        "frameId": "f1",
+        "frames": [
+          {
+            "id": "f1",
+            "function": "<module>",
+            "line": 1,
+            "locals": {
+              "running_total": {
+                "kind": "unavailable",
+                "type": "function",
+                "reason": "Runtime metadata is not expanded"
+              }
+            },
+            "changes": {
+              "running_total": {
+                "before": null,
+                "after": {
+                  "kind": "unavailable",
+                  "type": "function",
+                  "reason": "Runtime metadata is not expanded"
+                }
+              }
+            },
+            "truncated": false
+          }
+        ],
+        "objects": {},
+        "returnValue": {
+          "kind": "scalar",
+          "type": "NoneType",
+          "value": "None"
+        }
+      },
+      {
+        "index": 3,
+        "kind": "call",
+        "line": 1,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 1,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              }
+            },
+            "changes": {
+              "numbers": {
+                "before": null,
+                "after": {
+                  "kind": "ref",
+                  "id": "o1"
+                }
+              }
+            },
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 4,
+        "kind": "line",
+        "line": 2,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 2,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              }
+            },
+            "changes": {},
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 5,
+        "kind": "line",
+        "line": 3,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 3,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "0"
+              }
+            },
+            "changes": {
+              "total": {
+                "before": null,
+                "after": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "0"
+                }
+              }
+            },
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 6,
+        "kind": "line",
+        "line": 4,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 4,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "0"
+              },
+              "number": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              }
+            },
+            "changes": {
+              "number": {
+                "before": null,
+                "after": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "2"
+                }
+              }
+            },
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 7,
+        "kind": "line",
+        "line": 5,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 5,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              "number": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              }
+            },
+            "changes": {
+              "total": {
+                "before": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "0"
+                },
+                "after": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "2"
+                }
+              }
+            },
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 8,
+        "kind": "line",
+        "line": 3,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 3,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              "number": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              }
+            },
+            "changes": {},
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 9,
+        "kind": "line",
+        "line": 4,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 4,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              "number": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              }
+            },
+            "changes": {
+              "number": {
+                "before": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "2"
+                },
+                "after": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "4"
+                }
+              }
+            },
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 10,
+        "kind": "line",
+        "line": 5,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 5,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              },
+              "number": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              }
+            },
+            "changes": {
+              "total": {
+                "before": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "2"
+                },
+                "after": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "6"
+                }
+              }
+            },
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 11,
+        "kind": "line",
+        "line": 3,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 3,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              },
+              "number": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              }
+            },
+            "changes": {},
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 12,
+        "kind": "line",
+        "line": 4,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 4,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              },
+              "number": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            },
+            "changes": {
+              "number": {
+                "before": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "4"
+                },
+                "after": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "6"
+                }
+              }
+            },
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 13,
+        "kind": "line",
+        "line": 5,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 5,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "12"
+              },
+              "number": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            },
+            "changes": {
+              "total": {
+                "before": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "6"
+                },
+                "after": {
+                  "kind": "scalar",
+                  "type": "int",
+                  "value": "12"
+                }
+              }
+            },
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 14,
+        "kind": "line",
+        "line": 3,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 3,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "12"
+              },
+              "number": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            },
+            "changes": {},
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 15,
+        "kind": "line",
+        "line": 6,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 6,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "12"
+              },
+              "number": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            },
+            "changes": {},
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "index": 16,
+        "kind": "return",
+        "line": 6,
+        "frameId": "f2",
+        "frames": [
+          {
+            "id": "f2",
+            "function": "running_total",
+            "line": 6,
+            "locals": {
+              "numbers": {
+                "kind": "ref",
+                "id": "o1"
+              },
+              "total": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "12"
+              },
+              "number": {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            },
+            "changes": {},
+            "truncated": false
+          }
+        ],
+        "objects": {
+          "o1": {
+            "id": "o1",
+            "type": "list",
+            "truncated": false,
+            "length": 3,
+            "items": [
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "2"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "4"
+              },
+              {
+                "kind": "scalar",
+                "type": "int",
+                "value": "6"
+              }
+            ]
+          }
+        },
+        "returnValue": {
+          "kind": "scalar",
+          "type": "int",
+          "value": "12"
+        }
+      }
+    ],
+    "stdout": "total: 2\ntotal: 6\ntotal: 12\n",
+    "stderr": "",
+    "outcome": "completed",
+    "durationMs": 2.0853339810855687,
+    "complete": true,
+    "objects": {},
+    "returnValue": {
+      "kind": "scalar",
+      "type": "int",
+      "value": "12"
+    }
+  }
+}
