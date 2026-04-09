@@ -19,10 +19,15 @@ const child = spawn(
         process.env.DOCKER_CONTEXT ??
         (process.platform === "darwin" ? "colima-debugroom" : undefined),
       DOCKER_BIN: process.env.DOCKER_BIN ?? "docker",
-      DEBUGROOM_LANGUAGES: process.env.DEBUGROOM_LANGUAGES ?? "python",
+      DEBUGROOM_LANGUAGES:
+        process.env.DEBUGROOM_LANGUAGES ??
+        config.languages?.join(",") ??
+        "python",
       PYTHON_IMAGE: process.env.PYTHON_IMAGE,
       CPP_IMAGE: process.env.CPP_IMAGE,
       CONTAINER_RUNTIME: process.env.CONTAINER_RUNTIME,
+      PYTHON_CONTAINER_RUNTIME: process.env.PYTHON_CONTAINER_RUNTIME ?? "runsc",
+      CPP_CONTAINER_RUNTIME: process.env.CPP_CONTAINER_RUNTIME ?? "runc",
     },
   },
 );

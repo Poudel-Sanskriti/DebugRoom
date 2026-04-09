@@ -22,6 +22,25 @@ def steps(records, function=None):
 
 
 class TraceTests(unittest.TestCase):
+    def test_solution_method_and_global_scope(self):
+        code = 'offset = 2\nclass Solution:\n    def add(self, a, b):\n        total = a + b + offset\n        return total\n'
+        records = run(code, [2, 3])
+        self.assertEqual(records[-1]['returnValue']['value'], '7')
+        event = next(e for e in steps(records, 'add') if e['kind'] == 'line' and e['line'] == 5)
+        self.assertEqual(event['globals']['offset']['value'], '2')
+        self.assertIn('self', event['frames'][-1]['locals'])
+        discovery = run(code, mode='discover')[0]
+        self.assertEqual(discovery['functions'][0]['name'], 'Solution.add')
+        self.assertEqual(discovery['functions'][0]['signature'], 'a, b')
+
+    def test_deque_and_metaclass_getters_are_not_evaluated(self):
+        code = 'from collections import deque\nclass Meta(type):\n    @property\n    def __name__(cls):\n        raise AssertionError("metadata getter called")\nclass Node(metaclass=Meta):\n    def __init__(self):\n        self.value=3\ndef example():\n    queue=deque([1,2])\n    node=Node()\n    return [queue,node]\n'
+        records=run(code)
+        self.assertEqual(records[-1]['outcome'], 'completed')
+        kinds=[node['type'] for node in records[-1]['objects'].values()]
+        self.assertIn('deque', kinds)
+        self.assertIn('Node', kinds)
+
     def test_before_line_and_return(self):
         records = run('def add(a, b):\n    total = a + b\n    return total\n', [2, 3])
         events = steps(records, 'add')

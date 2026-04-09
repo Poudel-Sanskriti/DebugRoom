@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import types
+from collections import deque, defaultdict, OrderedDict, Counter
 
 MAX_ITEMS = 128
 MAX_OBJECTS = 256
@@ -11,7 +12,7 @@ MAX_STRING = 4096
 
 
 def type_name(value):
-    return type.__getattribute__(type(value), "__name__")[:100]
+    return type.__dict__["__name__"].__get__(type(value))[:100]
 
 
 class Snapshotter:
@@ -70,16 +71,16 @@ class Snapshotter:
             return self.unavailable(value, "Snapshot object budget reached")
         node = {"id": object_id, "type": type_name(value), "truncated": False}
         self.objects[object_id] = node
-        if cls in (list, tuple, set, frozenset):
+        if cls in (list, tuple, set, frozenset, deque):
             node["length"] = len(value)
             node["truncated"] = len(value) > MAX_ITEMS
             # Exact builtin types: no user-defined iteration methods are invoked.
             node["items"] = self.sequence(value, depth)
-        elif cls is dict:
+        elif cls in (dict, defaultdict, OrderedDict, Counter):
             node["length"] = len(value)
             node["truncated"] = len(value) > MAX_ITEMS
             node["entries"] = []
-            for i, (key, item) in enumerate(value.items()):
+            for i, (key, item) in enumerate(OrderedDict.items(value) if cls is OrderedDict else dict.items(value)):
                 if i == MAX_ITEMS:
                     break
                 node["entries"].append({"key": self.value(key, depth + 1), "value": self.value(item, depth + 1)})
@@ -110,8 +111,8 @@ class Snapshotter:
         # Bypass user __getattribute__. Only builtin data descriptors may be read.
         result = {}
         found = False
-        for base in type.__getattribute__(cls, "__mro__"):
-            namespace = type.__getattribute__(base, "__dict__")
+        for base in type.__dict__["__mro__"].__get__(cls):
+            namespace = type.__dict__["__dict__"].__get__(base)
             descriptor = namespace.get("__dict__")
             if type(descriptor) is types.GetSetDescriptorType:
                 data = descriptor.__get__(value, cls)

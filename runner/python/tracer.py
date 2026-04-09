@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import copy
 import inspect
 import io
 import json
@@ -45,10 +46,23 @@ def error_detail(exc):
 def discover(source):
     tree = ast.parse(source, filename=FILENAME)
     candidates = []
+    def add(node, prefix=""):
+        if not isinstance(node, ast.FunctionDef) or node.name.startswith("_"):
+            return
+        if any(isinstance(child, (ast.Yield, ast.YieldFrom)) for child in ast.walk(node)):
+            return
+        args = copy.deepcopy(node.args)
+        if prefix:
+            positional = args.posonlyargs if args.posonlyargs else args.args
+            if positional and positional[0].arg in ("self", "cls"):
+                positional.pop(0)
+        candidates.append({"name": prefix + node.name, "line": node.lineno, "signature": ast.unparse(args)[:500]})
     for node in tree.body:
-        if isinstance(node, ast.FunctionDef) and not node.name.startswith("_"):
-            if not any(isinstance(child, (ast.Yield, ast.YieldFrom)) for child in ast.walk(node)):
-                candidates.append({"name": node.name, "line": node.lineno, "signature": ast.unparse(node.args)[:500]})
+        if isinstance(node, ast.FunctionDef):
+            add(node)
+        elif isinstance(node, ast.ClassDef) and node.name == "Solution":
+            for method in node.body:
+                add(method, "Solution.")
     return candidates
 
 
@@ -123,6 +137,9 @@ class Collector:
                            "locals": local_values, "changes": {}, "truncated": len(visible) > 256})
         record = {"index": self.count, "kind": event, "line": max(1, frame.f_lineno), "frameId": self.frames[id(frame)],
                   "frames": frames, "objects": self.snapshots.objects}
+        globals_ = [(name, value) for name, value in frame.f_globals.items() if not name.startswith("__")]
+        record["globals"] = {name[:200]: self.snapshots.value(value) for name, value in globals_[:256]}
+        record["globalsTruncated"] = len(globals_) > 256
         if event == "return":
             record["returnValue"] = self.snapshots.value(arg)
         if event == "exception":
@@ -190,7 +207,10 @@ def main():
     sys.stderr = Output(collector, "stderr")
     supplied = job.get("input", {})
     sys.stdin = io.StringIO(supplied.get("stdin", ""))
-    namespace = {"__name__": "__main__", "__file__": FILENAME, "__builtins__": builtins.__dict__}
+    module = types.ModuleType("__main__")
+    namespace = module.__dict__
+    namespace.update({"__file__": FILENAME, "__builtins__": builtins.__dict__})
+    sys.modules["__main__"] = module
     try:
         candidates = discover(source)
         entry = job.get("entryPoint")
@@ -199,7 +219,7 @@ def main():
         elif entry is None and len(candidates) > 1:
             raise ValueError("Select an entry function before running this program")
         if entry not in (None, "__module__") and entry not in [x["name"] for x in candidates]:
-            raise ValueError("Entry point must be a detected synchronous top-level function")
+            raise ValueError("Entry point must be a detected synchronous function or Solution method")
         if type(supplied.get("args", [])) is not list or type(supplied.get("kwargs", {})) is not dict:
             raise ValueError("Input requires an args array and a kwargs object")
     except SyntaxError as exc:
@@ -214,8 +234,17 @@ def main():
         exec(compiled, namespace)
         result = None
         if entry not in (None, "__module__"):
-            function = namespace.get(entry)
-            if type(function) is not types.FunctionType or inspect.iscoroutinefunction(function) or inspect.isgeneratorfunction(function):
+            if entry.startswith("Solution."):
+                try:
+                    instance = namespace["Solution"]()
+                except TypeError as exc:
+                    sys.settrace(None)
+                    collector.finish("input_error", error_detail(exc))
+                    return
+                function = getattr(instance, entry.split(".", 1)[1])
+            else:
+                function = namespace.get(entry)
+            if type(function) not in (types.FunctionType, types.MethodType) or inspect.iscoroutinefunction(function) or inspect.isgeneratorfunction(function):
                 sys.settrace(None)
                 collector.finish("input_error", {"type": "TypeError", "message": "Entry point is not a synchronous function", "line": None})
                 return

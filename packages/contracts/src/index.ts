@@ -107,6 +107,10 @@ export const EventSchema = Type.Object(
     objects: Type.Record(Type.String(), ObjectSchema, { maxProperties: 256 }),
     returnValue: Type.Optional(ValueSchema),
     exception: Type.Optional(ErrorSchema),
+    globals: Type.Optional(
+      Type.Record(Type.String(), ValueSchema, { maxProperties: 256 }),
+    ),
+    globalsTruncated: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );
@@ -119,6 +123,7 @@ export const OutcomeSchema = Type.Union(
       "runtime_error",
       "input_error",
       "compile_error",
+      "compile_timeout",
       "timeout",
       "trace_limit",
       "output_limit",

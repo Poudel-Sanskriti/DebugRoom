@@ -52,6 +52,10 @@
           "type": "string"
         },
         {
+          "const": "compile_timeout",
+          "type": "string"
+        },
+        {
           "const": "timeout",
           "type": "string"
         },
@@ -87,7 +91,14 @@
       "items": {
         "additionalProperties": false,
         "type": "object",
-        "required": ["index", "kind", "line", "frameId", "frames", "objects"],
+        "required": [
+          "index",
+          "kind",
+          "line",
+          "frameId",
+          "frames",
+          "objects"
+        ],
         "properties": {
           "index": {
             "minimum": 0,
@@ -158,7 +169,11 @@
                         {
                           "additionalProperties": false,
                           "type": "object",
-                          "required": ["kind", "type", "value"],
+                          "required": [
+                            "kind",
+                            "type",
+                            "value"
+                          ],
                           "properties": {
                             "kind": {
                               "const": "scalar",
@@ -180,7 +195,10 @@
                         {
                           "additionalProperties": false,
                           "type": "object",
-                          "required": ["kind", "id"],
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
                           "properties": {
                             "kind": {
                               "const": "ref",
@@ -195,7 +213,11 @@
                         {
                           "additionalProperties": false,
                           "type": "object",
-                          "required": ["kind", "type", "reason"],
+                          "required": [
+                            "kind",
+                            "type",
+                            "reason"
+                          ],
                           "properties": {
                             "kind": {
                               "const": "unavailable",
@@ -222,7 +244,10 @@
                     "^(.*)$": {
                       "additionalProperties": false,
                       "type": "object",
-                      "required": ["before", "after"],
+                      "required": [
+                        "before",
+                        "after"
+                      ],
                       "properties": {
                         "before": {
                           "anyOf": [
@@ -231,7 +256,11 @@
                                 {
                                   "additionalProperties": false,
                                   "type": "object",
-                                  "required": ["kind", "type", "value"],
+                                  "required": [
+                                    "kind",
+                                    "type",
+                                    "value"
+                                  ],
                                   "properties": {
                                     "kind": {
                                       "const": "scalar",
@@ -253,7 +282,10 @@
                                 {
                                   "additionalProperties": false,
                                   "type": "object",
-                                  "required": ["kind", "id"],
+                                  "required": [
+                                    "kind",
+                                    "id"
+                                  ],
                                   "properties": {
                                     "kind": {
                                       "const": "ref",
@@ -268,7 +300,11 @@
                                 {
                                   "additionalProperties": false,
                                   "type": "object",
-                                  "required": ["kind", "type", "reason"],
+                                  "required": [
+                                    "kind",
+                                    "type",
+                                    "reason"
+                                  ],
                                   "properties": {
                                     "kind": {
                                       "const": "unavailable",
@@ -298,7 +334,11 @@
                                 {
                                   "additionalProperties": false,
                                   "type": "object",
-                                  "required": ["kind", "type", "value"],
+                                  "required": [
+                                    "kind",
+                                    "type",
+                                    "value"
+                                  ],
                                   "properties": {
                                     "kind": {
                                       "const": "scalar",
@@ -320,7 +360,10 @@
                                 {
                                   "additionalProperties": false,
                                   "type": "object",
-                                  "required": ["kind", "id"],
+                                  "required": [
+                                    "kind",
+                                    "id"
+                                  ],
                                   "properties": {
                                     "kind": {
                                       "const": "ref",
@@ -335,7 +378,11 @@
                                 {
                                   "additionalProperties": false,
                                   "type": "object",
-                                  "required": ["kind", "type", "reason"],
+                                  "required": [
+                                    "kind",
+                                    "type",
+                                    "reason"
+                                  ],
                                   "properties": {
                                     "kind": {
                                       "const": "unavailable",
@@ -375,7 +422,11 @@
               "^(.*)$": {
                 "additionalProperties": false,
                 "type": "object",
-                "required": ["id", "type", "truncated"],
+                "required": [
+                  "id",
+                  "type",
+                  "truncated"
+                ],
                 "properties": {
                   "id": {
                     "maxLength": 100,
@@ -397,7 +448,11 @@
                         {
                           "additionalProperties": false,
                           "type": "object",
-                          "required": ["kind", "type", "value"],
+                          "required": [
+                            "kind",
+                            "type",
+                            "value"
+                          ],
                           "properties": {
                             "kind": {
                               "const": "scalar",
@@ -419,7 +474,10 @@
                         {
                           "additionalProperties": false,
                           "type": "object",
-                          "required": ["kind", "id"],
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
                           "properties": {
                             "kind": {
                               "const": "ref",
@@ -434,7 +492,11 @@
                         {
                           "additionalProperties": false,
                           "type": "object",
-                          "required": ["kind", "type", "reason"],
+                          "required": [
+                            "kind",
+                            "type",
+                            "reason"
+                          ],
                           "properties": {
                             "kind": {
                               "const": "unavailable",
@@ -458,14 +520,21 @@
                     "type": "array",
                     "items": {
                       "type": "object",
-                      "required": ["key", "value"],
+                      "required": [
+                        "key",
+                        "value"
+                      ],
                       "properties": {
                         "key": {
                           "anyOf": [
                             {
                               "additionalProperties": false,
                               "type": "object",
-                              "required": ["kind", "type", "value"],
+                              "required": [
+                                "kind",
+                                "type",
+                                "value"
+                              ],
                               "properties": {
                                 "kind": {
                                   "const": "scalar",
@@ -487,7 +556,10 @@
                             {
                               "additionalProperties": false,
                               "type": "object",
-                              "required": ["kind", "id"],
+                              "required": [
+                                "kind",
+                                "id"
+                              ],
                               "properties": {
                                 "kind": {
                                   "const": "ref",
@@ -502,7 +574,11 @@
                             {
                               "additionalProperties": false,
                               "type": "object",
-                              "required": ["kind", "type", "reason"],
+                              "required": [
+                                "kind",
+                                "type",
+                                "reason"
+                              ],
                               "properties": {
                                 "kind": {
                                   "const": "unavailable",
@@ -525,7 +601,11 @@
                             {
                               "additionalProperties": false,
                               "type": "object",
-                              "required": ["kind", "type", "value"],
+                              "required": [
+                                "kind",
+                                "type",
+                                "value"
+                              ],
                               "properties": {
                                 "kind": {
                                   "const": "scalar",
@@ -547,7 +627,10 @@
                             {
                               "additionalProperties": false,
                               "type": "object",
-                              "required": ["kind", "id"],
+                              "required": [
+                                "kind",
+                                "id"
+                              ],
                               "properties": {
                                 "kind": {
                                   "const": "ref",
@@ -562,7 +645,11 @@
                             {
                               "additionalProperties": false,
                               "type": "object",
-                              "required": ["kind", "type", "reason"],
+                              "required": [
+                                "kind",
+                                "type",
+                                "reason"
+                              ],
                               "properties": {
                                 "kind": {
                                   "const": "unavailable",
@@ -592,7 +679,11 @@
                           {
                             "additionalProperties": false,
                             "type": "object",
-                            "required": ["kind", "type", "value"],
+                            "required": [
+                              "kind",
+                              "type",
+                              "value"
+                            ],
                             "properties": {
                               "kind": {
                                 "const": "scalar",
@@ -614,7 +705,10 @@
                           {
                             "additionalProperties": false,
                             "type": "object",
-                            "required": ["kind", "id"],
+                            "required": [
+                              "kind",
+                              "id"
+                            ],
                             "properties": {
                               "kind": {
                                 "const": "ref",
@@ -629,7 +723,11 @@
                           {
                             "additionalProperties": false,
                             "type": "object",
-                            "required": ["kind", "type", "reason"],
+                            "required": [
+                              "kind",
+                              "type",
+                              "reason"
+                            ],
                             "properties": {
                               "kind": {
                                 "const": "unavailable",
@@ -661,7 +759,11 @@
               {
                 "additionalProperties": false,
                 "type": "object",
-                "required": ["kind", "type", "value"],
+                "required": [
+                  "kind",
+                  "type",
+                  "value"
+                ],
                 "properties": {
                   "kind": {
                     "const": "scalar",
@@ -683,7 +785,10 @@
               {
                 "additionalProperties": false,
                 "type": "object",
-                "required": ["kind", "id"],
+                "required": [
+                  "kind",
+                  "id"
+                ],
                 "properties": {
                   "kind": {
                     "const": "ref",
@@ -698,7 +803,11 @@
               {
                 "additionalProperties": false,
                 "type": "object",
-                "required": ["kind", "type", "reason"],
+                "required": [
+                  "kind",
+                  "type",
+                  "reason"
+                ],
                 "properties": {
                   "kind": {
                     "const": "unavailable",
@@ -719,7 +828,11 @@
           "exception": {
             "additionalProperties": false,
             "type": "object",
-            "required": ["type", "message", "line"],
+            "required": [
+              "type",
+              "message",
+              "line"
+            ],
             "properties": {
               "type": {
                 "maxLength": 200,
@@ -745,6 +858,86 @@
                 "type": "string"
               }
             }
+          },
+          "globals": {
+            "maxProperties": 256,
+            "type": "object",
+            "patternProperties": {
+              "^(.*)$": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "type",
+                      "value"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "scalar",
+                        "type": "string"
+                      },
+                      "type": {
+                        "maxLength": 100,
+                        "type": "string"
+                      },
+                      "value": {
+                        "maxLength": 4096,
+                        "type": "string"
+                      },
+                      "truncated": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "ref",
+                        "type": "string"
+                      },
+                      "id": {
+                        "maxLength": 100,
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "type",
+                      "reason"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "unavailable",
+                        "type": "string"
+                      },
+                      "type": {
+                        "maxLength": 100,
+                        "type": "string"
+                      },
+                      "reason": {
+                        "maxLength": 300,
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "globalsTruncated": {
+            "type": "boolean"
           }
         }
       }
@@ -760,7 +953,11 @@
     "error": {
       "additionalProperties": false,
       "type": "object",
-      "required": ["type", "message", "line"],
+      "required": [
+        "type",
+        "message",
+        "line"
+      ],
       "properties": {
         "type": {
           "maxLength": 200,
@@ -792,7 +989,11 @@
         {
           "additionalProperties": false,
           "type": "object",
-          "required": ["kind", "type", "value"],
+          "required": [
+            "kind",
+            "type",
+            "value"
+          ],
           "properties": {
             "kind": {
               "const": "scalar",
@@ -814,7 +1015,10 @@
         {
           "additionalProperties": false,
           "type": "object",
-          "required": ["kind", "id"],
+          "required": [
+            "kind",
+            "id"
+          ],
           "properties": {
             "kind": {
               "const": "ref",
@@ -829,7 +1033,11 @@
         {
           "additionalProperties": false,
           "type": "object",
-          "required": ["kind", "type", "reason"],
+          "required": [
+            "kind",
+            "type",
+            "reason"
+          ],
           "properties": {
             "kind": {
               "const": "unavailable",
@@ -854,7 +1062,11 @@
         "^(.*)$": {
           "additionalProperties": false,
           "type": "object",
-          "required": ["id", "type", "truncated"],
+          "required": [
+            "id",
+            "type",
+            "truncated"
+          ],
           "properties": {
             "id": {
               "maxLength": 100,
@@ -876,7 +1088,11 @@
                   {
                     "additionalProperties": false,
                     "type": "object",
-                    "required": ["kind", "type", "value"],
+                    "required": [
+                      "kind",
+                      "type",
+                      "value"
+                    ],
                     "properties": {
                       "kind": {
                         "const": "scalar",
@@ -898,7 +1114,10 @@
                   {
                     "additionalProperties": false,
                     "type": "object",
-                    "required": ["kind", "id"],
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
                     "properties": {
                       "kind": {
                         "const": "ref",
@@ -913,7 +1132,11 @@
                   {
                     "additionalProperties": false,
                     "type": "object",
-                    "required": ["kind", "type", "reason"],
+                    "required": [
+                      "kind",
+                      "type",
+                      "reason"
+                    ],
                     "properties": {
                       "kind": {
                         "const": "unavailable",
@@ -937,14 +1160,21 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["key", "value"],
+                "required": [
+                  "key",
+                  "value"
+                ],
                 "properties": {
                   "key": {
                     "anyOf": [
                       {
                         "additionalProperties": false,
                         "type": "object",
-                        "required": ["kind", "type", "value"],
+                        "required": [
+                          "kind",
+                          "type",
+                          "value"
+                        ],
                         "properties": {
                           "kind": {
                             "const": "scalar",
@@ -966,7 +1196,10 @@
                       {
                         "additionalProperties": false,
                         "type": "object",
-                        "required": ["kind", "id"],
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
                         "properties": {
                           "kind": {
                             "const": "ref",
@@ -981,7 +1214,11 @@
                       {
                         "additionalProperties": false,
                         "type": "object",
-                        "required": ["kind", "type", "reason"],
+                        "required": [
+                          "kind",
+                          "type",
+                          "reason"
+                        ],
                         "properties": {
                           "kind": {
                             "const": "unavailable",
@@ -1004,7 +1241,11 @@
                       {
                         "additionalProperties": false,
                         "type": "object",
-                        "required": ["kind", "type", "value"],
+                        "required": [
+                          "kind",
+                          "type",
+                          "value"
+                        ],
                         "properties": {
                           "kind": {
                             "const": "scalar",
@@ -1026,7 +1267,10 @@
                       {
                         "additionalProperties": false,
                         "type": "object",
-                        "required": ["kind", "id"],
+                        "required": [
+                          "kind",
+                          "id"
+                        ],
                         "properties": {
                           "kind": {
                             "const": "ref",
@@ -1041,7 +1285,11 @@
                       {
                         "additionalProperties": false,
                         "type": "object",
-                        "required": ["kind", "type", "reason"],
+                        "required": [
+                          "kind",
+                          "type",
+                          "reason"
+                        ],
                         "properties": {
                           "kind": {
                             "const": "unavailable",
@@ -1071,7 +1319,11 @@
                     {
                       "additionalProperties": false,
                       "type": "object",
-                      "required": ["kind", "type", "value"],
+                      "required": [
+                        "kind",
+                        "type",
+                        "value"
+                      ],
                       "properties": {
                         "kind": {
                           "const": "scalar",
@@ -1093,7 +1345,10 @@
                     {
                       "additionalProperties": false,
                       "type": "object",
-                      "required": ["kind", "id"],
+                      "required": [
+                        "kind",
+                        "id"
+                      ],
                       "properties": {
                         "kind": {
                           "const": "ref",
@@ -1108,7 +1363,11 @@
                     {
                       "additionalProperties": false,
                       "type": "object",
-                      "required": ["kind", "type", "reason"],
+                      "required": [
+                        "kind",
+                        "type",
+                        "reason"
+                      ],
                       "properties": {
                         "kind": {
                           "const": "unavailable",

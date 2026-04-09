@@ -31,6 +31,8 @@ def control(arguments, timeout=20):
 def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
     limits = {**DEFAULT_LIMITS, **(policy or {})}
     language = job.get("language", "python")
+    if language == "cpp":
+        limits["memoryMb"] = max(512, limits["memoryMb"])
     start = time.monotonic()
     runtime_start = None
     name = "debugroom-" + (attempt_id or str(uuid.uuid4()))
@@ -66,14 +68,15 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
             image = os.environ.get("PYTHON_IMAGE", "debugroom-python:local") if language == "python" else os.environ.get("CPP_IMAGE", "debugroom-cpp:local")
             arguments = ["create", "-i", "--name", name, "--label", "dev.debugroom.execution=true", "--network", "none", "--read-only",
                          "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", str(limits["processes"]),
-                         "--memory", f'{limits["memoryMb"]}m', "--memory-swap", f'{limits["memoryMb"]}m', "--cpus", "1",
+                         "--ulimit", f'nproc={limits["processes"]}:{limits["processes"]}', "--memory", f'{limits["memoryMb"]}m', "--memory-swap", f'{limits["memoryMb"]}m', "--cpus", "1",
                          "--ulimit", f'fsize={limits["scratchMb"] * 1024 * 1024}:{limits["scratchMb"] * 1024 * 1024}',
                          "--tmpfs", f'/tmp:rw,noexec,nosuid,size={limits["scratchMb"]}m,mode=1777', "--user", "65532:65532"]
-            if os.environ.get("CONTAINER_RUNTIME"):
-                arguments += ["--runtime", os.environ["CONTAINER_RUNTIME"]]
+            selected_runtime = os.environ.get(language.upper() + "_CONTAINER_RUNTIME", os.environ.get("CONTAINER_RUNTIME"))
+            if selected_runtime:
+                arguments += ["--runtime", selected_runtime]
             if language == "cpp":
                 # LLDB requires process tracing inside its separate execution container.
-                arguments += ["--cap-add", "SYS_PTRACE", "--security-opt", "seccomp=unconfined", "--tmpfs", "/work:rw,exec,nosuid,size=64m,mode=1777"]
+                arguments += ["--tmpfs", "/work:rw,exec,nosuid,size=64m,mode=1777"]
             created = control(arguments + [image], timeout=30)
             if created.returncode:
                 raise RuntimeError("Execution container could not be created: " + created.stderr[-2000:])
@@ -139,7 +142,9 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
                     try:
                         record = json.loads(line)
                         kind = record["type"]
-                        if kind == "started":
+                        if kind == "phase" and record.get("phase") == "compiling":
+                            metrics["compileStartedMs"] = (time.monotonic() - start) * 1000
+                        elif kind == "started":
                             if runtime_start is not None:
                                 raise ValueError("Duplicate start record")
                             runtime_start = time.monotonic()
