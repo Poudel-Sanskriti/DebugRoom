@@ -1,4 +1,4 @@
-import Fastify, { type FastifyRequest } from "fastify";
+import Fastify, { LogController, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
 import staticFiles from "@fastify/static";
@@ -17,17 +17,21 @@ import {
 import { Store, type Actor } from "./store.ts";
 import type { Artifacts } from "./artifacts.ts";
 import { ApiError } from "./errors.ts";
+import { registerOperations } from "./operations.ts";
+import { registerCollaboration } from "./collaboration-routes.ts";
 import { discoverPython } from "./discovery.ts";
 
 export type AppConfig = {
   root: string;
   origin: string;
   localAuth: boolean;
+  localLoginToken?: string;
   runnerToken: string;
   logger?: boolean;
   serveStatic?: boolean;
   python?: string;
   executionMode: "docker" | "local-inspected";
+  languages?: ("python" | "cpp")[];
   github?: { id: string; secret: string };
 };
 const Id = Type.String({ format: "uuid" });
@@ -64,7 +68,7 @@ export async function buildApp(
           ],
         }
       : false,
-    disableRequestLogging: true,
+    logController: new LogController({ disableRequestLogging: true }),
   });
   app.decorateRequest("actor", null);
   await app.register(cookie);
@@ -83,6 +87,9 @@ export async function buildApp(
     [...allowedOrigins].map((origin) => new URL(origin).host),
   );
   const secureCookies = new URL(config.origin).protocol === "https:";
+  const cookieName = secureCookies
+    ? "__Host-debugroom_session"
+    : "debugroom_session";
   const cookieOptions = {
     httpOnly: true,
     secure: secureCookies,
@@ -101,6 +108,11 @@ export async function buildApp(
         throw new ApiError(401, "Worker authentication required");
       return;
     }
+    if (
+      request.method === "GET" &&
+      (request.url === "/health" || request.url === "/health/ready")
+    )
+      return;
     if (!allowedHosts.has(request.headers.host ?? ""))
       throw new ApiError(403, "Unrecognized request host");
     const origin = request.headers.origin;
@@ -112,9 +124,7 @@ export async function buildApp(
     )
       throw new ApiError(403, "Cross-site request rejected");
     if (!request.url.startsWith("/api/")) return;
-    request.actor = await store.session(
-      request.cookies.debugroom_session ?? "",
-    );
+    request.actor = await store.session(request.cookies[cookieName] ?? "");
     if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
     if (!origin || !allowedOrigins.has(origin))
       throw new ApiError(403, "A same-origin request is required");
@@ -135,19 +145,23 @@ export async function buildApp(
     const status = known.statusCode ?? (known.validation ? 400 : 500);
     if (status >= 500)
       app.log.error({ err: error, requestId: request.id }, "request failed");
-    reply
-      .code(status)
-      .send({
-        error: {
-          code: known.code ?? "request_error",
-          message:
-            status >= 500
-              ? "The service could not complete this request. Your saved work is unchanged."
-              : known.message,
-        },
-      });
+    reply.code(status).send({
+      error: {
+        code: known.code ?? "request_error",
+        message:
+          status >= 500
+            ? "The service could not complete this request. Your saved work is unchanged."
+            : known.message,
+      },
+    });
   });
   app.addHook("onResponse", async (request) => {
+    if (
+      request.url === "/health" ||
+      request.url.endsWith("/claim") ||
+      request.url.endsWith("/heartbeat")
+    )
+      return;
     app.log.info(
       {
         requestId: request.id,
@@ -186,7 +200,7 @@ export async function buildApp(
     localAuth: config.localAuth,
     githubAuth: !!config.github,
     executionMode: config.executionMode,
-    languages: ["python"],
+    languages: config.languages ?? ["python", "cpp"],
     limits,
   }));
   app.get("/api/session", async (request) => {
@@ -198,22 +212,38 @@ export async function buildApp(
       csrf: a.csrf,
     };
   });
-  app.post("/api/auth/local", async (request, reply) => {
-    if (!config.localAuth)
-      throw new ApiError(404, "Local sign-in is unavailable");
-    if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.ip))
-      throw new ApiError(
-        403,
-        "Local sign-in is available only on this machine",
-      );
-    const id = await store.tutor("local:owner", "Sanskriti");
-    const session = await store.createSession(id, null);
-    reply.setCookie("debugroom_session", session.secret, cookieOptions);
-    return { signedIn: true };
-  });
+  app.post<{ Body: { token: string } }>(
+    "/api/auth/local",
+    {
+      schema: {
+        body: Type.Object(
+          { token: Type.String({ minLength: 32, maxLength: 100 }) },
+          { additionalProperties: false },
+        ),
+      },
+    },
+    async (request, reply) => {
+      if (!config.localAuth)
+        throw new ApiError(404, "Local sign-in is unavailable");
+      if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.ip))
+        throw new ApiError(
+          403,
+          "Local sign-in is available only on this machine",
+        );
+      if (
+        !config.localLoginToken ||
+        !equal(request.body.token, config.localLoginToken)
+      )
+        throw new ApiError(403, "A valid local access key is required");
+      const id = await store.tutor("local:owner", "Local tutor");
+      const session = await store.createSession(id, null);
+      reply.setCookie(cookieName, session.secret, cookieOptions);
+      return { signedIn: true };
+    },
+  );
   app.post("/api/auth/logout", async (request, reply) => {
     await store.logout(actor(request));
-    reply.clearCookie("debugroom_session", { path: "/" });
+    reply.clearCookie(cookieName, { path: "/" });
     return { signedOut: true };
   });
   app.get("/api/workspaces", async (request) => ({
@@ -337,12 +367,24 @@ export async function buildApp(
     },
     async (request) => {
       checkDraft(request.body.draft);
-      if (!request.body.draft.code.trim())
-        throw new ApiError(400, "Enter a program before running");
-      if (request.body.draft.language !== "python")
+      if (
+        !(config.languages ?? ["python", "cpp"]).includes(
+          request.body.draft.language,
+        )
+      )
         throw new ApiError(
           400,
-          "This runtime does not support that language yet",
+          "This language is not enabled on this deployment",
+        );
+      if (!request.body.draft.code.trim())
+        throw new ApiError(400, "Enter a program before running");
+      if (
+        config.executionMode !== "docker" &&
+        actor(request).role === "student"
+      )
+        throw new ApiError(
+          403,
+          "Student execution requires the isolated runtime",
         );
       return store.createRun(
         actor(request),
@@ -509,6 +551,34 @@ export async function buildApp(
       }
     },
   );
+  app.get<{ Params: { id: string } }>(
+    "/api/runs/:id/export",
+    { schema: { params: Type.Object({ id: Id }) } },
+    async (request, reply) => {
+      const a = actor(request),
+        run = await store.getRun(a, request.params.id),
+        artifact = await store.artifact(a, run.id);
+      if (!artifact)
+        throw new ApiError(409, "This run does not have a captured trace yet");
+      reply.header(
+        "Content-Disposition",
+        `attachment; filename="debugroom-run-${run.id}.json"`,
+      );
+      const result = await artifacts.get(artifact.storage_key, artifact.sha256);
+      return {
+        format: "debugroom-run",
+        version: 1,
+        run,
+        result: {
+          ...result,
+          outcome: run.outcome,
+          complete: run.outcome === "completed",
+        },
+      };
+    },
+  );
+  registerOperations(app, store);
+  await registerCollaboration(app, store, config, artifacts);
   if (config.serveStatic) {
     await app.register(staticFiles, {
       root: path.join(config.root, "apps/web/dist"),

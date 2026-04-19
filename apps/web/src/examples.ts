@@ -73,3 +73,42 @@ export const examples: Example[] = [
     },
   },
 ];
+
+examples.push(
+  {
+    id: "cpp-recursion",
+    title: "C++ · Recursive factorial",
+    draft: {
+      language: "cpp",
+      entryPoint: null,
+      problem:
+        "Compute a factorial with a recursive C++ function. main() reads n from stdin and prints the answer. The return value shown for a C++ run is the process exit code.",
+      input: '{\n  "args": [],\n  "kwargs": {},\n  "stdin": "4\\n"\n}',
+      code: '#include <iostream>\n\nint factorial(int n) {\n    if (n <= 1) return 1;\n    int smaller = factorial(n - 1);\n    return n * smaller;\n}\n\nint main() {\n    int n = 0;\n    std::cin >> n;\n    int answer = factorial(n);\n    std::cout << answer << "\\n";\n    return 0;\n}\n',
+    },
+  },
+  {
+    id: "cpp-linked-list",
+    title: "C++ · Linked nodes & pointers",
+    draft: {
+      language: "cpp",
+      entryPoint: null,
+      problem:
+        "Follow next pointers through three nodes and add their values. Locals use explicit initializers so their observed values can be shown reliably.",
+      input: '{\n  "args": [],\n  "kwargs": {},\n  "stdin": ""\n}',
+      code: '#include <iostream>\n\nstruct Node { int value; Node* next; };\n\nint main() {\n    Node last{3, nullptr};\n    Node middle{2, &last};\n    Node first{1, &middle};\n    Node* current = &first;\n    int total = 0;\n\n    while (current != nullptr) {\n        total += current->value;\n        current = current->next;\n    }\n    std::cout << total << "\\n";\n    return 0;\n}\n',
+    },
+  },
+  {
+    id: "cpp-vector",
+    title: "C++ · Vector mutation",
+    draft: {
+      language: "cpp",
+      entryPoint: null,
+      problem:
+        "Inspect a vector before and after push_back and an element update. Historical observations remain unchanged.",
+      input: '{\n  "args": [],\n  "kwargs": {},\n  "stdin": ""\n}',
+      code: '#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> numbers{1, 2, 3};\n    numbers.push_back(4);\n    numbers[0] = 10;\n    std::cout << numbers.size() << "\\n";\n    return 0;\n}\n',
+    },
+  },
+);

@@ -110,12 +110,16 @@ export class Store {
     return row.id;
   }
 
-  async createSession(tutorId: string | null, grantId: string | null) {
+  async createSession(
+    tutorId: string | null,
+    grantId: string | null,
+    db: Connection = this.db,
+  ) {
     const secret = token(),
       csrf = token(),
       id = randomUUID();
     await sql`INSERT INTO sessions(id, token_hash, csrf, tutor_id, grant_id) VALUES (${id},${hash(secret)},${csrf},${tutorId},${grantId})`.execute(
-      this.db,
+      db,
     );
     return { secret, csrf, id };
   }
@@ -222,7 +226,7 @@ export class Store {
     ).rows;
     const invitation =
       (
-        await sql`SELECT id FROM invitations WHERE workspace_id=${id} AND revoked_at IS NULL AND expires_at>now() LIMIT 1`.execute(
+        await sql`SELECT id FROM invitations WHERE workspace_id=${id} AND revoked_at IS NULL AND (expires_at>now() OR EXISTS(SELECT 1 FROM grants g WHERE g.invitation_id=invitations.id AND g.revoked_at IS NULL)) LIMIT 1`.execute(
           this.db,
         )
       ).rows.length > 0;

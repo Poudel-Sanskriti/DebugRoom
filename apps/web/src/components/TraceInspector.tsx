@@ -15,6 +15,7 @@ import {
   Braces,
 } from "lucide-react";
 import type { Run, TraceFrame, TraceValue } from "@debugroom/contracts";
+import ObjectGraph from "./ObjectGraph";
 import ValueView, { valueText, valueType } from "./ValueView";
 
 const outcomeNames: Record<string, string> = {
@@ -23,6 +24,7 @@ const outcomeNames: Record<string, string> = {
   runtime_error: "Runtime error",
   input_error: "Input error",
   compile_error: "Compiler error",
+  compile_timeout: "Compilation time limit reached",
   timeout: "Time limit reached",
   trace_limit: "Trace limit reached",
   output_limit: "Output limit reached",
@@ -162,7 +164,11 @@ export default function TraceInspector({
                 <strong>
                   {run.status === "queued"
                     ? "Waiting for an execution slot"
-                    : `Running · ${seconds.toFixed(1)}s`}
+                    : !run.startedAt
+                      ? run.snapshot?.language === "cpp"
+                        ? "Compiling C++…"
+                        : "Starting the runtime…"
+                      : `Running · ${seconds.toFixed(1)}s`}
                 </strong>
                 <p>
                   {seconds >= 5
@@ -238,6 +244,25 @@ export default function TraceInspector({
                   ))}
                 </div>
               </details>
+              {event.globals && Object.keys(event.globals).length > 0 && (
+                <details className="global-scope">
+                  <summary>
+                    Global scope{" "}
+                    <span>
+                      {Object.keys(event.globals).length} names
+                      {event.globalsTruncated ? " · truncated" : ""}
+                    </span>
+                  </summary>
+                  <div>
+                    {Object.entries(event.globals).map(([name, value]) => (
+                      <div key={name}>
+                        <code>{name}</code>
+                        <ValueView value={value} objects={objects} />
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
               {pins.length > 0 && (
                 <div className="pinned-panel">
                   <h3>
@@ -278,6 +303,7 @@ export default function TraceInspector({
                   })}
                 </div>
               )}
+              {frame && <ObjectGraph locals={frame.locals} objects={objects} />}
               <div className="variables-heading">
                 <h3>Local variables</h3>
                 <span>
@@ -369,7 +395,11 @@ export default function TraceInspector({
               </summary>
               {run.result.returnValue && (
                 <div className="final-return">
-                  <span>Return value</span>
+                  <span>
+                    {run.snapshot?.language === "cpp"
+                      ? "Exit code"
+                      : "Return value"}
+                  </span>
                   <ValueView
                     value={run.result.returnValue}
                     objects={run.result.objects}

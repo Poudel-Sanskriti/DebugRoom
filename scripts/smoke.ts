@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { loadConfig } from "../apps/api/src/config.ts";
 import { examples } from "../apps/web/src/examples.ts";
 import type { Run, Workspace, Branch } from "@debugroom/contracts";
 
@@ -28,7 +29,9 @@ async function request<T>(
   assert.equal(response.ok, true, JSON.stringify(data));
   return data as T;
 }
-await request("/api/auth/local", "POST");
+await request("/api/auth/local", "POST", {
+  token: (await loadConfig()).localLoginToken,
+});
 csrf = (await request<{ csrf: string }>("/api/session")).csrf;
 const workspace = await request<Workspace>("/api/workspaces", "POST", {
   title: "Acceptance · binary search",

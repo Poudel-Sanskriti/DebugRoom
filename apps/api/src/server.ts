@@ -3,6 +3,7 @@ import { Store } from "./store.ts";
 import { LocalArtifacts, S3Artifacts } from "./artifacts.ts";
 import { S3Client } from "@aws-sdk/client-s3";
 import { buildApp } from "./app.ts";
+import { maintainWorkspaces } from "./lifecycle.ts";
 import { loadConfig } from "./config.ts";
 import path from "node:path";
 
@@ -22,9 +23,23 @@ const reaper = setInterval(
   5000,
 );
 reaper.unref();
+const janitor = setInterval(
+  () =>
+    maintainWorkspaces(store, artifacts)
+      .then((result) => {
+        if (result.expired || result.cleaned || result.orphans)
+          app.log.info(result, "workspace cleanup completed");
+      })
+      .catch((error) =>
+        app.log.error({ err: error }, "workspace cleanup failed"),
+      ),
+  60_000,
+);
+janitor.unref();
 for (const signal of ["SIGINT", "SIGTERM"] as const)
   process.on(signal, async () => {
     clearInterval(reaper);
+    clearInterval(janitor);
     await app.close();
     await db.destroy();
     process.exit(0);

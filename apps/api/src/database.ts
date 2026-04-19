@@ -21,8 +21,12 @@ export function connectDatabase(
 }
 
 export async function migrate(db: Database) {
+  const schema = (
+    await sql<{ schema: string }>`SELECT current_schema() AS schema`.execute(db)
+  ).rows[0]!.schema;
   const migrator = new Migrator({
     db,
+    migrationTableSchema: schema,
     provider: {
       getMigrations: async () => ({
         "0001_initial": {

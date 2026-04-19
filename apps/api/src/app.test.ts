@@ -35,6 +35,7 @@ beforeAll(async () => {
     root,
     origin: "http://127.0.0.1:5173",
     localAuth: true,
+    localLoginToken: "test-local-login-key-at-least-32-characters",
     runnerToken: workerSecret,
     executionMode: "docker",
   });
@@ -43,6 +44,7 @@ beforeAll(async () => {
     url: "/api/auth/local",
     headers: { host: "127.0.0.1:5173", origin: "http://127.0.0.1:5173" },
     remoteAddress: "127.0.0.1",
+    payload: { token: "test-local-login-key-at-least-32-characters" },
   });
   expect(login.statusCode).toBe(200);
   const cookie = login.cookies[0]!.value;

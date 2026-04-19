@@ -41,6 +41,9 @@ export function useWorkspace() {
   const [invitation, setInvitation] = useState(() =>
     new URLSearchParams(window.location.hash.slice(1)).get("invite"),
   );
+  const localAccess = useRef(
+    new URLSearchParams(window.location.hash.slice(1)).get("local"),
+  );
   const initialization = useRef<Promise<{
     config: RuntimeConfig;
     session: Session | null;
@@ -65,7 +68,7 @@ export function useWorkspace() {
   }, []);
   useEffect(() => {
     let alive = true;
-    if (invitation)
+    if (invitation || localAccess.current)
       window.history.replaceState(
         null,
         "",
@@ -76,15 +79,16 @@ export function useWorkspace() {
       if (invitation)
         return { config: configuration, session: null, workspaces: [] };
       let identity: Session | null = null;
+      if (configuration.localAuth && localAccess.current)
+        await api("/api/auth/local", {
+          method: "POST",
+          body: { token: localAccess.current },
+        });
       try {
         identity = await api<Session>("/api/session");
       } catch (error) {
         if (!(error instanceof ClientError && error.status === 401))
           throw error;
-        if (configuration.localAuth) {
-          await api("/api/auth/local", { method: "POST" });
-          identity = await api<Session>("/api/session");
-        }
       }
       if (!identity)
         return { config: configuration, session: null, workspaces: [] };
@@ -246,7 +250,10 @@ export function useWorkspace() {
     let alive = true;
     refreshHistory(workspace.id)
       .then((runs) => {
-        if (alive && runs[0]) void selectRun(runs[0].id);
+        const latest = runs.find(
+          (run) => run.branchId === current.current?.branchId,
+        );
+        if (alive && latest) void selectRun(latest.id);
       })
       .catch((error) => {
         if (alive) setError(message(error));
@@ -254,7 +261,7 @@ export function useWorkspace() {
     return () => {
       alive = false;
     };
-  }, [workspace?.id, refreshHistory, selectRun]);
+  }, [workspace?.id, branch?.id, refreshHistory, selectRun]);
   useEffect(() => {
     if (!run || run.status === "finished") return;
     let alive = true;
@@ -409,6 +416,23 @@ export function useWorkspace() {
       `/api/workspaces/${current.current.workspaceId}`,
     );
     setWorkspace(w);
+    const latest = w.branches.find((b) => b.id === current.current?.branchId);
+    if (
+      latest &&
+      current.current &&
+      latest.revision > current.current.revision &&
+      same(current.current.draft, current.current.saved) &&
+      !saving.current
+    ) {
+      current.current = {
+        ...current.current,
+        draft: latest.draft,
+        saved: latest.draft,
+        revision: latest.revision,
+      };
+      setDraft(latest.draft);
+      setBranch(latest);
+    }
     setWorkspaces((previous) =>
       previous.map((item) => (item.id === w.id ? w : item)),
     );

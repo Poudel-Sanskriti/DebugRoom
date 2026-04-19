@@ -21,9 +21,13 @@ import {
   GitBranch,
   Play,
   RotateCw,
+  Users,
+  Columns2,
 } from "lucide-react";
 import { useWorkspace } from "./hooks/useWorkspace";
 import TraceInspector, { outcomeName } from "./components/TraceInspector";
+import CollaborationPanel from "./components/CollaborationPanel";
+import RunComparison from "./components/RunComparison";
 import { examples } from "./examples";
 import { api } from "./api";
 import type { Draft, Run } from "@debugroom/contracts";
@@ -40,9 +44,12 @@ const sameSource = (left: Draft | null, right: Draft | undefined) =>
 export default function App() {
   const model = useWorkspace();
   const { workspace, branch, draft, run } = model;
+  const [localKey, setLocalKey] = useState("");
   const [index, setIndex] = useState(0),
     [sourceView, setSourceView] = useState<"draft" | "run">("draft"),
     [bottomTab, setBottomTab] = useState<"input" | "problem">("input");
+  const [showCollaboration, setShowCollaboration] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
   const [showHistory, setShowHistory] = useState(false),
     [functions, setFunctions] = useState<
       { name: string; signature: string; line: number }[]
@@ -102,6 +109,17 @@ export default function App() {
       controller.abort();
     };
   }, [draft?.code, draft?.language]);
+  useEffect(() => {
+    if (!workspace?.invitationActive) return;
+    const timer = setInterval(
+      () =>
+        void model
+          .refreshWorkspace()
+          .catch((error) => model.setError(error.message)),
+      3500,
+    );
+    return () => clearInterval(timer);
+  }, [workspace?.id, workspace?.invitationActive, model.refreshWorkspace]);
   const startRun = useCallback(() => {
     setIndex(0);
     void model.startRun();
@@ -187,6 +205,37 @@ export default function App() {
               </button>
             </div>
           )}
+          {model.config?.localAuth && (
+            <form
+              className="local-signin"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void api("/api/auth/local", {
+                  method: "POST",
+                  body: { token: localKey },
+                })
+                  .then(() => window.location.reload())
+                  .catch((error) => model.setError(error.message));
+              }}
+            >
+              <label className="form-label">
+                Local access key
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={localKey}
+                  onChange={(e) => setLocalKey(e.target.value)}
+                  required
+                  minLength={32}
+                />
+              </label>
+              <p className="small-note">
+                Use your private local access link, or read the key from
+                .data/local-login-token in the project.
+              </p>
+              <button className="primary">Open local workspace</button>
+            </form>
+          )}
           {model.config?.githubAuth && (
             <a className="primary" href="/api/auth/github">
               Sign in with GitHub
@@ -209,9 +258,31 @@ export default function App() {
           <span className="connection-badge">
             <ShieldCheck size={14} /> Isolated execution
           </span>
-          <span className="avatar" title={model.session.displayName}>
-            {model.session.displayName.slice(0, 1).toUpperCase()}
-          </span>
+          <details className="account-menu">
+            <summary aria-label="Account menu">
+              <span className="avatar" title={model.session.displayName}>
+                {model.session.displayName.slice(0, 1).toUpperCase()}
+              </span>
+            </summary>
+            <div>
+              <strong>{model.session.displayName}</strong>
+              <span>
+                {model.session.role === "tutor" ? "Tutor" : "Student"}
+              </span>
+              <button
+                onClick={() =>
+                  void model.flush().then((ok) => {
+                    if (ok)
+                      return api("/api/auth/logout", { method: "POST" }).then(
+                        () => window.location.reload(),
+                      );
+                  })
+                }
+              >
+                Sign out
+              </button>
+            </div>
+          </details>
         </div>
       </header>
       <div className="app-layout">
@@ -265,6 +336,12 @@ export default function App() {
               <h1>{workspace?.title ?? "Your workspace"}</h1>
             </div>
             <div className="heading-actions">
+              <button
+                className={`secondary ${showCollaboration ? "selected" : ""}`}
+                onClick={() => setShowCollaboration((value) => !value)}
+              >
+                <Users size={15} /> Feedback
+              </button>
               <span
                 className={`save-indicator ${model.saveState}`}
                 role="status"
@@ -307,6 +384,29 @@ export default function App() {
               </option>
             ))}
           </select>
+          {workspace && workspace.branches.length > 1 && (
+            <div className="branch-switcher">
+              <GitBranch size={14} />
+              <label>
+                Working in{" "}
+                <select
+                  aria-label="Choose branch"
+                  value={branch?.id}
+                  onChange={(e) =>
+                    void model.chooseWorkspace(workspace.id, e.target.value)
+                  }
+                >
+                  {workspace.branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.kind === "mentor"
+                        ? "Private mentor copy"
+                        : "Student copy"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
           {model.error && (
             <div className="error-banner" role="alert">
               <AlertTriangle size={17} />
@@ -336,6 +436,14 @@ export default function App() {
           {showHistory && (
             <section className="history-panel" aria-label="Run history">
               <div className="history-title">
+                {model.history.length >= 2 && (
+                  <button
+                    className="secondary"
+                    onClick={() => setShowComparison(true)}
+                  >
+                    <Columns2 size={14} /> Compare runs
+                  </button>
+                )}
                 <h2>Every run tells a story.</h2>
                 <span>
                   Results stay attached to the source and input that produced
@@ -421,11 +529,15 @@ export default function App() {
                       <option value="" disabled>
                         Examples
                       </option>
-                      {examples.map((item) => (
-                        <option value={item.id} key={item.id}>
-                          {item.title}
-                        </option>
-                      ))}
+                      {examples
+                        .filter((item) =>
+                          model.config?.languages.includes(item.draft.language),
+                        )
+                        .map((item) => (
+                          <option value={item.id} key={item.id}>
+                            {item.title}
+                          </option>
+                        ))}
                     </select>
                     <ChevronDown size={12} />
                   </label>
@@ -470,9 +582,31 @@ export default function App() {
                       <FileCode2 size={14} />{" "}
                       {displayed.language === "cpp" ? "main.cpp" : "main.py"}
                     </span>
-                    <span className="language">
-                      {displayed.language === "cpp" ? "C++" : "Python 3.14"}
-                    </span>
+                    {sourceView === "draft" ? (
+                      <select
+                        className="language-select"
+                        aria-label="Program language"
+                        value={draft.language}
+                        disabled={!!readonly}
+                        onChange={(e) =>
+                          model.edit({
+                            language: e.target.value as "python" | "cpp",
+                            entryPoint: null,
+                          })
+                        }
+                      >
+                        <option value="python">Python 3.14</option>
+                        {model.config?.languages.includes("cpp") && (
+                          <option value="cpp">C++20</option>
+                        )}
+                      </select>
+                    ) : (
+                      <span className="language">
+                        {displayed.language === "cpp"
+                          ? "C++20 · Clang 18"
+                          : "Python 3.14"}
+                      </span>
+                    )}
                   </div>
                   <Suspense
                     fallback={
@@ -546,8 +680,18 @@ export default function App() {
                         onChange={(e) => model.edit({ input: e.target.value })}
                       />
                       <p className="input-help">
-                        Pass positional values in <code>args</code> and named
-                        values in <code>kwargs</code>.
+                        {displayed.language === "cpp" ? (
+                          <>
+                            A standalone <code>main()</code> reads text from{" "}
+                            <code>stdin</code>. Keep <code>args</code> and{" "}
+                            <code>kwargs</code> empty.
+                          </>
+                        ) : (
+                          <>
+                            Pass positional values in <code>args</code> and
+                            named values in <code>kwargs</code>.
+                          </>
+                        )}
                       </p>
                     </>
                   ) : (
@@ -572,18 +716,36 @@ export default function App() {
                       <span>ENTRY POINT</span>
                       <select
                         aria-label="Entry function"
-                        value={draft.entryPoint ?? ""}
-                        disabled={!!readonly}
+                        value={
+                          sourceView === "run"
+                            ? (displayed.entryPoint ?? "")
+                            : (draft.entryPoint ?? "")
+                        }
+                        disabled={!!readonly || displayed.language === "cpp"}
                         onChange={(e) =>
                           model.edit({ entryPoint: e.target.value || null })
                         }
                       >
                         <option value="">
-                          {functions.length === 1
-                            ? `Auto · ${functions[0]!.name}()`
-                            : "Choose automatically"}
+                          {displayed.language === "cpp"
+                            ? "main()"
+                            : sourceView === "run"
+                              ? "Automatic selection"
+                              : functions.length === 1
+                                ? `Auto · ${functions[0]!.name}()`
+                                : "Choose automatically"}
                         </option>
                         <option value="__module__">Run as a script</option>
+                        {sourceView === "run" &&
+                          displayed.entryPoint &&
+                          displayed.entryPoint !== "__module__" &&
+                          !functions.some(
+                            (fn) => fn.name === displayed.entryPoint,
+                          ) && (
+                            <option value={displayed.entryPoint}>
+                              {displayed.entryPoint}()
+                            </option>
+                          )}
                         {functions.map((fn) => (
                           <option key={fn.name} value={fn.name}>
                             {fn.name}({fn.signature})
@@ -609,7 +771,11 @@ export default function App() {
                         onClick={startRun}
                       >
                         <Play size={15} fill="currentColor" />{" "}
-                        {model.submitting ? "Starting…" : "Run code"}
+                        {model.submitting
+                          ? "Starting…"
+                          : sourceView === "run"
+                            ? "Run draft"
+                            : "Run code"}
                         <kbd>⌘ ↵</kbd>
                       </button>
                     )}
@@ -628,6 +794,19 @@ export default function App() {
                 onViewSource={viewRunSource}
               />
             </div>
+          )}
+          {showCollaboration && (
+            <CollaborationPanel
+              model={model}
+              line={event?.line ?? 1}
+              onEditDraft={() => setSourceView("draft")}
+            />
+          )}
+          {showComparison && (
+            <RunComparison
+              runs={model.history}
+              onClose={() => setShowComparison(false)}
+            />
           )}
           <footer className="page-footer">
             <span>

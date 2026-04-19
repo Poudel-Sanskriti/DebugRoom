@@ -27,6 +27,16 @@ export async function loadConfig(): Promise<
       await writeFile(secretPath, runnerToken, { flag: "wx", mode: 0o600 });
     }
   }
+  let localLoginToken: string | undefined;
+  if (!production) {
+    const localPath = path.join(directory, "local-login-token");
+    try {
+      localLoginToken = (await readFile(localPath, "utf8")).trim();
+    } catch {
+      localLoginToken = randomBytes(32).toString("base64url");
+      await writeFile(localPath, localLoginToken, { mode: 0o600, flag: "wx" });
+    }
+  }
   if (!runnerToken || runnerToken.length < 32)
     throw new Error("Set a DEBUGROOM_RUNNER_TOKEN of at least 32 characters");
   let databaseUrl = process.env.DATABASE_URL;
@@ -46,6 +56,15 @@ export async function loadConfig(): Promise<
     (executionMode !== "docker" || !origin.startsWith("https://"))
   )
     throw new Error("Hosted mode requires HTTPS and isolated Docker execution");
+  const cppEnabled = !production || process.env.DEBUGROOM_ENABLE_CPP === "1";
+  if (
+    production &&
+    cppEnabled &&
+    process.env.CPP_RUNTIME_PROFILE !== "dedicated-vm"
+  )
+    throw new Error(
+      "Hosted C++ requires an explicitly validated dedicated-vm profile",
+    );
   const github =
     process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
       ? {
@@ -61,11 +80,13 @@ export async function loadConfig(): Promise<
     root,
     origin,
     localAuth: !production,
+    localLoginToken,
     runnerToken,
     databaseUrl,
     port: Number(process.env.PORT ?? 3001),
     host: production ? "0.0.0.0" : "127.0.0.1",
     executionMode,
+    languages: cppEnabled ? ["python", "cpp"] : ["python"],
     python: process.env.PYTHON_BIN ?? "python3",
     github,
     logger: true,
