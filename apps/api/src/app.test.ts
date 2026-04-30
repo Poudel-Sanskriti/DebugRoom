@@ -20,12 +20,13 @@ let db: Database,
 const workerSecret = "test-worker-secret-with-at-least-32-characters";
 const workerHeaders = { authorization: `Bearer ${workerSecret}` };
 beforeAll(async () => {
-  const password = (
-    await readFile(path.join(root, ".data/postgres-password"), "utf8")
-  ).trim();
-  const url =
-    process.env.TEST_DATABASE_URL ??
-    `postgresql://debugroom:${password}@127.0.0.1:55432/postgres`;
+  let url = process.env.TEST_DATABASE_URL;
+  if (!url) {
+    const password = (
+      await readFile(path.join(root, ".data/postgres-password"), "utf8")
+    ).trim();
+    url = `postgresql://debugroom:${password}@127.0.0.1:55432/postgres`;
+  }
   admin = connectDatabase(url);
   await sql`CREATE SCHEMA ${sql.id(schema)}`.execute(admin);
   db = connectDatabase(url, schema);

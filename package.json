@@ -19,13 +19,23 @@
     "test:web": "npm test -w @debugroom/web",
     "test:api": "npm test -w @debugroom/api",
     "test:python": "python3 -m unittest discover -s runner/python -p 'test_*.py'",
-    "test:contracts": "node --import tsx --test packages/contracts/src/contract.test.ts"
+    "test:contracts": "node --import tsx --test packages/contracts/src/contract.test.ts",
+    "backup": "node --import tsx scripts/backup.ts",
+    "restore:check": "node --import tsx scripts/restore-check.ts",
+    "start": "node --import tsx apps/api/src/server.ts",
+    "test:sandbox": "DEBUGROOM_TEST_DOCKER=1 python3 -m unittest discover -s runner/agent -p 'test_*.py'",
+    "test:cpp": "DEBUGROOM_TEST_DOCKER=1 python3 -m unittest discover -s runner/cpp -p 'test_*.py'",
+    "db:migrate": "node --import tsx scripts/migrate.ts",
+    "local:access": "node --import tsx scripts/local-access.ts"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "26.5.1",
     "@types/pg": "8.23.1",
     "embedded-postgres": "18.4.0-beta.17",
-    "prettier": "3.9.6",
+    "prettier": "3.9.6"
+  },
+  "dependencies": {
     "tsx": "4.23.13"
   }
 }

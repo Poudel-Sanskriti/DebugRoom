@@ -111,7 +111,7 @@ export class Collaboration {
         "Invitation is invalid, expired, or already used",
       );
       const workspace = (
-        await sql`SELECT id FROM workspaces WHERE id=${invitation.workspace_id} AND deleted_at IS NULL AND expires_at>now() FOR UPDATE`.execute(
+        await sql`SELECT id FROM workspaces WHERE id=${invitation.workspace_id} AND deleted_at IS NULL AND (expires_at IS NULL OR expires_at>now()) FOR UPDATE`.execute(
           db,
         )
       ).rows[0];
@@ -386,6 +386,21 @@ export class Collaboration {
       runs = await this.store.listRuns(actor, id),
       shares = await this.shares(actor, id),
       comments = await this.comments(actor, id);
+    if (runs.length === 100) {
+      let cursor = runs.at(-1)!.id;
+      while (true) {
+        const page = await this.store.listRuns(actor, id, cursor);
+        if (!page.length) break;
+        runs.push(...page);
+        cursor = page.at(-1)!.id;
+        if (page.length < 100) break;
+        if (runs.length > 2000)
+          throw new ApiError(
+            413,
+            "This workspace has too many runs for one export. Export individual traces.",
+          );
+      }
+    }
     const snapshots = [];
     for (const run of runs)
       snapshots.push(await this.store.getSnapshot(actor, run.snapshotId));

@@ -2,6 +2,7 @@ import { randomBytes, randomUUID, createHash } from "node:crypto";
 import { sql, type Transaction } from "kysely";
 import {
   emptyDraft,
+  executionPolicy,
   type Draft,
   type Run,
   type Snapshot,
@@ -40,7 +41,7 @@ type WorkspaceRow = {
   owner_id: string;
   title: string;
   created_at: Date;
-  expires_at: Date;
+  expires_at: Date | null;
   deleted_at: Date | null;
 };
 type SnapshotRow = {
@@ -97,7 +98,10 @@ const actorKey = (a: Actor) =>
 const json = (value: unknown) => JSON.stringify(value);
 
 export class Store {
-  constructor(public db: Database) {}
+  constructor(
+    public db: Database,
+    public retentionDays: number | null = 30,
+  ) {}
 
   async tutor(subject: string, displayName: string) {
     const row = (
@@ -139,7 +143,7 @@ export class Store {
       FROM sessions s LEFT JOIN tutors t ON t.id=s.tutor_id LEFT JOIN grants g ON g.id=s.grant_id
       LEFT JOIN invitations i ON i.id=g.invitation_id LEFT JOIN workspaces w ON w.id=g.workspace_id
       WHERE s.token_hash=${hash(secret)} AND s.expires_at > now()
-      AND (s.tutor_id IS NOT NULL OR (g.revoked_at IS NULL AND i.revoked_at IS NULL AND w.deleted_at IS NULL AND w.expires_at>now()))
+      AND (s.tutor_id IS NOT NULL OR (g.revoked_at IS NULL AND i.revoked_at IS NULL AND w.deleted_at IS NULL AND (w.expires_at IS NULL OR w.expires_at>now())))
     `.execute(this.db)
     ).rows[0];
     if (!row) return null;
@@ -171,7 +175,7 @@ export class Store {
         ? sql`w.owner_id=${actor.tutorId}`
         : sql`w.id=${actor.workspaceId}`;
     const row = (
-      await sql<WorkspaceRow>`SELECT w.* FROM workspaces w WHERE w.id=${id} AND ${authority} AND w.deleted_at IS NULL AND w.expires_at > now() ${lock ? sql`FOR UPDATE` : sql``}`.execute(
+      await sql<WorkspaceRow>`SELECT w.* FROM workspaces w WHERE w.id=${id} AND ${authority} AND w.deleted_at IS NULL AND (w.expires_at IS NULL OR w.expires_at > now()) ${lock ? sql`FOR UPDATE` : sql``}`.execute(
         db,
       )
     ).rows[0];
@@ -199,7 +203,7 @@ export class Store {
   }
 
   async touch(workspaceId: string, db: Connection) {
-    await sql`UPDATE workspaces SET updated_at=now(), expires_at=now()+interval '30 days' WHERE id=${workspaceId}`.execute(
+    await sql`UPDATE workspaces SET updated_at=now(), expires_at=${this.retentionDays === null ? sql`NULL` : sql`now()+make_interval(days=>${this.retentionDays})`} WHERE id=${workspaceId}`.execute(
       db,
     );
   }
@@ -210,7 +214,7 @@ export class Store {
         ? sql`owner_id=${actor.tutorId}`
         : sql`id=${actor.workspaceId}`;
     const rows = (
-      await sql<WorkspaceRow>`SELECT * FROM workspaces WHERE ${condition} AND deleted_at IS NULL AND expires_at>now() ORDER BY updated_at DESC LIMIT 100`.execute(
+      await sql<WorkspaceRow>`SELECT * FROM workspaces WHERE ${condition} AND deleted_at IS NULL AND (expires_at IS NULL OR expires_at>now()) ORDER BY updated_at DESC LIMIT 100`.execute(
         this.db,
       )
     ).rows;
@@ -235,7 +239,7 @@ export class Store {
       title: row.title,
       role: actor.role,
       createdAt: row.created_at.toISOString(),
-      expiresAt: row.expires_at.toISOString(),
+      expiresAt: row.expires_at?.toISOString() ?? null,
       branches: branches.map(toBranch),
       studentRevision:
         branches.find((b) => b.kind === "student")?.revision ?? 0,
@@ -248,7 +252,7 @@ export class Store {
       throw new ApiError(403, "Only tutors can create workspaces");
     const id = randomUUID();
     await this.db.transaction().execute(async (db) => {
-      await sql`INSERT INTO workspaces(id,owner_id,title) VALUES (${id},${actor.tutorId},${title.trim() || "Untitled workspace"})`.execute(
+      await sql`INSERT INTO workspaces(id,owner_id,title,expires_at) VALUES (${id},${actor.tutorId},${title.trim() || "Untitled workspace"},${this.retentionDays === null ? sql`NULL` : sql`now()+make_interval(days=>${this.retentionDays})`})`.execute(
         db,
       );
       await sql`INSERT INTO branches(id,workspace_id,kind,name,draft) VALUES (${randomUUID()},${id},'student','Workspace',${json(emptyDraft)}::jsonb)`.execute(
@@ -408,10 +412,15 @@ export class Store {
     return this.getRun(actor, runId);
   }
 
-  async listRuns(actor: Actor, workspaceId: string) {
+  async listRuns(actor: Actor, workspaceId: string, before?: string) {
     await this.workspaceRow(actor, workspaceId);
+    if (before) {
+      const cursor = await this.getRun(actor, before);
+      if (cursor.workspaceId !== workspaceId)
+        throw new ApiError(404, "Run cursor not found");
+    }
     return (
-      await sql<RunRow>`SELECT r.* FROM runs r JOIN branches b ON b.id=r.branch_id WHERE r.workspace_id=${workspaceId} ${actor.role === "student" ? sql`AND b.kind='student'` : sql``} ORDER BY r.created_at DESC LIMIT 100`.execute(
+      await sql<RunRow>`SELECT r.* FROM runs r JOIN branches b ON b.id=r.branch_id WHERE r.workspace_id=${workspaceId} ${actor.role === "student" ? sql`AND b.kind='student'` : sql``} ${before ? sql`AND (r.created_at,r.id)<(SELECT created_at,id FROM runs WHERE id=${before})` : sql``} ORDER BY r.created_at DESC,r.id DESC LIMIT 100`.execute(
         this.db,
       )
     ).rows.map(toRun);
@@ -451,7 +460,12 @@ export class Store {
     return this.getRun(actor, id);
   }
 
-  async claim(workerId: string, runtime: string, languages: string[]) {
+  async claim(
+    workerId: string,
+    runtime: string,
+    languages: string[],
+    runtimeImages: Record<string, string> = {},
+  ) {
     return this.db.transaction().execute(async (db) => {
       await sql`INSERT INTO worker_heartbeats(id,runtime,capabilities) VALUES(${workerId},${runtime},${json(languages)}::jsonb) ON CONFLICT(id) DO UPDATE SET seen_at=now(),runtime=EXCLUDED.runtime,capabilities=EXCLUDED.capabilities`.execute(
         db,
@@ -459,7 +473,7 @@ export class Store {
       const run = (
         await sql<RunRow & { draft: Draft }>`
         SELECT r.*,s.draft FROM runs r JOIN snapshots s ON s.id=r.snapshot_id JOIN workspaces w ON w.id=r.workspace_id
-        WHERE r.status='queued' AND NOT r.cancel_requested AND w.deleted_at IS NULL AND w.expires_at>now()
+        WHERE r.status='queued' AND NOT r.cancel_requested AND w.deleted_at IS NULL AND (w.expires_at IS NULL OR w.expires_at>now())
         AND s.draft->>'language' IN (${sql.join(languages)})
         AND NOT EXISTS(SELECT 1 FROM runs busy WHERE busy.workspace_id=r.workspace_id AND busy.status='running')
         ORDER BY r.created_at FOR UPDATE OF r SKIP LOCKED LIMIT 1
@@ -485,7 +499,9 @@ export class Store {
       await sql`UPDATE runs SET status='running', generation=${generation}, started_at=NULL WHERE id=${run.id}`.execute(
         db,
       );
-      await sql`INSERT INTO run_attempts(id,run_id,generation,worker_id,token_hash,lease_until,runtime) VALUES(${attemptId},${run.id},${generation},${workerId},${hash(leaseToken)},now()+interval '15 seconds',${runtime})`.execute(
+      const policy = executionPolicy(run.draft.language);
+      const runtimeDescription = runtimeImages[run.draft.language] ?? runtime;
+      await sql`INSERT INTO run_attempts(id,run_id,generation,worker_id,token_hash,lease_until,runtime,policy) VALUES(${attemptId},${run.id},${generation},${workerId},${hash(leaseToken)},now()+interval '15 seconds',${runtimeDescription},${json(policy)}::jsonb)`.execute(
         db,
       );
       return {
@@ -494,6 +510,7 @@ export class Store {
         generation,
         leaseToken,
         snapshot: run.draft,
+        limits: policy,
       };
     });
   }
@@ -508,7 +525,7 @@ export class Store {
           deleted_at: Date | null;
           expired: boolean;
         }>`
-        SELECT a.run_id,a.generation,r.cancel_requested,w.deleted_at,w.expires_at<=now() AS expired FROM run_attempts a
+        SELECT a.run_id,a.generation,r.cancel_requested,w.deleted_at,coalesce(w.expires_at<=now(),false) AS expired FROM run_attempts a
         JOIN runs r ON r.id=a.run_id JOIN workspaces w ON w.id=r.workspace_id
         WHERE a.id=${attemptId} AND a.token_hash=${hash(leaseToken)} AND a.lease_until>now() AND a.finished_at IS NULL
         AND r.status='running' AND r.generation=a.generation FOR UPDATE OF a,r
@@ -516,6 +533,9 @@ export class Store {
       ).rows[0];
       if (!attempt) return { active: false, cancel: true };
       await sql`UPDATE run_attempts SET lease_until=now()+interval '15 seconds',started_at=CASE WHEN ${started} THEN coalesce(started_at,now()) ELSE started_at END WHERE id=${attemptId}`.execute(
+        db,
+      );
+      await sql`UPDATE worker_heartbeats SET seen_at=now() WHERE id=(SELECT worker_id FROM run_attempts WHERE id=${attemptId})`.execute(
         db,
       );
       if (started)
@@ -528,6 +548,19 @@ export class Store {
           attempt.cancel_requested || !!attempt.deleted_at || attempt.expired,
       };
     });
+  }
+
+  async attemptSource(attemptId: string, leaseToken: string) {
+    const row = (
+      await sql<{
+        draft: Draft;
+      }>`SELECT s.draft FROM run_attempts a JOIN runs r ON r.id=a.run_id JOIN snapshots s ON s.id=r.snapshot_id WHERE a.id=${attemptId} AND a.token_hash=${hash(leaseToken)} AND a.finished_at IS NULL AND a.lease_until>now() AND r.generation=a.generation AND r.status='running'`.execute(
+        this.db,
+      )
+    ).rows[0];
+    if (!row)
+      throw new ApiError(409, "Attempt is no longer current", "stale_attempt");
+    return row.draft;
   }
 
   async complete(
@@ -546,7 +579,7 @@ export class Store {
         }>`
         SELECT a.run_id,r.workspace_id,r.cancel_requested FROM run_attempts a JOIN runs r ON r.id=a.run_id JOIN workspaces w ON w.id=r.workspace_id
         WHERE a.id=${attemptId} AND a.token_hash=${hash(leaseToken)} AND a.lease_until>now() AND a.finished_at IS NULL
-        AND r.status='running' AND r.generation=a.generation AND w.deleted_at IS NULL AND w.expires_at>now() FOR UPDATE OF a,r
+        AND r.status='running' AND r.generation=a.generation AND w.deleted_at IS NULL AND (w.expires_at IS NULL OR w.expires_at>now()) FOR UPDATE OF a,r
       `.execute(db)
       ).rows[0];
       if (!attempt)
@@ -599,7 +632,7 @@ export class Store {
   async attempts(actor: Actor, runId: string) {
     await this.getRun(actor, runId);
     return (
-      await sql`SELECT generation,claimed_at,started_at,finished_at,outcome,runtime,metrics FROM run_attempts WHERE run_id=${runId} ORDER BY generation`.execute(
+      await sql`SELECT generation,claimed_at,started_at,finished_at,outcome,runtime,policy,metrics FROM run_attempts WHERE run_id=${runId} ORDER BY generation`.execute(
         this.db,
       )
     ).rows;

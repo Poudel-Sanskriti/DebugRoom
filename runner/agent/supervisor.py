@@ -35,6 +35,9 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
         limits["memoryMb"] = max(512, limits["memoryMb"])
     start = time.monotonic()
     runtime_start = None
+    runtime_end = None
+    compile_start = None
+    cleanup_start = None
     name = "debugroom-" + (attempt_id or str(uuid.uuid4()))
     events, stdout, stderr = [], [], []
     protocol_result = None
@@ -42,6 +45,12 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
     failure_message = None
     trace_bytes = output_bytes = 0
     process = None
+    watchdog = None
+    heartbeat_thread = None
+    heartbeat_stop = threading.Event()
+    heartbeat_wake = threading.Event()
+    heartbeat_lock = threading.Lock()
+    heartbeat_status = {"lastGood": time.monotonic(), "active": True, "cancel": False}
     selector = None
     sandbox_created = False
     temporary = tempfile.TemporaryDirectory(prefix="debugroom-")
@@ -67,7 +76,7 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
         if mode == "docker":
             image = os.environ.get("PYTHON_IMAGE", "debugroom-python:local") if language == "python" else os.environ.get("CPP_IMAGE", "debugroom-cpp:local")
             arguments = ["create", "-i", "--name", name, "--label", "dev.debugroom.execution=true", "--network", "none", "--read-only",
-                         "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", str(limits["processes"]),
+                         "--log-driver", "none", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", str(limits["processes"]),
                          "--ulimit", f'nproc={limits["processes"]}:{limits["processes"]}', "--memory", f'{limits["memoryMb"]}m', "--memory-swap", f'{limits["memoryMb"]}m', "--cpus", "1",
                          "--ulimit", f'fsize={limits["scratchMb"] * 1024 * 1024}:{limits["scratchMb"] * 1024 * 1024}',
                          "--tmpfs", f'/tmp:rw,noexec,nosuid,size={limits["scratchMb"]}m,mode=1777', "--user", "65532:65532"]
@@ -81,6 +90,8 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
             if created.returncode:
                 raise RuntimeError("Execution container could not be created: " + created.stderr[-2000:])
             sandbox_created = True
+            watchdog_env={key:value for key,value in os.environ.items() if key in ('PATH','LANG','TMPDIR','TEMP','TMP','DOCKER_BIN','DOCKER_CONTEXT','DOCKER_HOST','DOCKER_CONFIG')}
+            watchdog=subprocess.Popen([sys.executable,str(ROOT/'runner/agent/watchdog.py'),'--container',name,'--scratch',temporary.name,'--wall-ms',str(limits['wallMs'])],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=watchdog_env,start_new_session=True)
             command = docker_command() + ["start", "-a", "-i", name]
             environment = os.environ.copy()  # Docker CLI only; no host env enters the container.
         elif mode == "local-inspected" and language == "python":
@@ -101,21 +112,30 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
         selector.register(process.stdout, selectors.EVENT_READ, "protocol")
         selector.register(process.stderr, selectors.EVENT_READ, "stderr")
         pending = b""
-        next_heartbeat = 0
-        last_good_heartbeat = time.monotonic()
+        if heartbeat:
+            def renew_execution_lease():
+                while not heartbeat_stop.is_set():
+                    try:
+                        status=heartbeat(runtime_start is not None)
+                        with heartbeat_lock:
+                            heartbeat_status.update(lastGood=time.monotonic(),active=status.get('active',False),cancel=status.get('cancel',False))
+                    except Exception:
+                        pass
+                    heartbeat_wake.wait(2)
+                    heartbeat_wake.clear()
+            heartbeat_thread=threading.Thread(target=renew_execution_lease,daemon=True)
+            heartbeat_thread.start()
         while selector.get_map():
             now = time.monotonic()
-            if heartbeat and now >= next_heartbeat:
-                try:
-                    status = heartbeat(runtime_start is not None)
-                    last_good_heartbeat = now
-                    if not status.get("active", False) or status.get("cancel", False):
-                        stop("stopped")
-                except Exception:
-                    # A disconnected agent must stop before it could outlive its lease.
-                    if now - last_good_heartbeat > 8:
-                        stop("infrastructure_error", "Worker lost its control connection")
-                next_heartbeat = time.monotonic() + 2
+            if heartbeat:
+                with heartbeat_lock:
+                    health=heartbeat_status.copy()
+                if not health['active']:
+                    stop('infrastructure_error','The worker no longer owns this execution attempt')
+                elif health['cancel']:
+                    stop('stopped')
+                elif now-health['lastGood']>8:
+                    stop('infrastructure_error','Worker lost its control connection')
             if runtime_start and now - runtime_start > limits["wallMs"] / 1000:
                 stop("timeout")
             elif runtime_start is None and now - start > 30:
@@ -143,13 +163,23 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
                         record = json.loads(line)
                         kind = record["type"]
                         if kind == "phase" and record.get("phase") == "compiling":
-                            metrics["compileStartedMs"] = (time.monotonic() - start) * 1000
+                            compile_start = time.monotonic()
+                            metrics["sandboxStartMs"] = (compile_start - start) * 1000
                         elif kind == "started":
                             if runtime_start is not None:
                                 raise ValueError("Duplicate start record")
                             runtime_start = time.monotonic()
-                            metrics["sandboxStartMs"] = (runtime_start - start) * 1000
-                            next_heartbeat = 0
+                            if watchdog is not None:
+                                try:
+                                    watchdog.stdin.write(b'started\n')
+                                    watchdog.stdin.flush()
+                                except (OSError,BrokenPipeError):
+                                    stop('infrastructure_error','The execution watchdog was unavailable')
+                            if compile_start is None:
+                                metrics["sandboxStartMs"] = (runtime_start - start) * 1000
+                            else:
+                                metrics["compileMs"] = (runtime_start - compile_start) * 1000
+                            heartbeat_wake.set()
                         elif kind == "event":
                             event = record["event"]
                             if protocol_result is not None or event["index"] != len(events):
@@ -174,6 +204,7 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
                             if protocol_result is not None:
                                 raise ValueError("Duplicate result record")
                             protocol_result = record
+                            runtime_end = time.monotonic()
                         else:
                             raise ValueError("Unknown trace protocol record")
                     except (ValueError, TypeError, KeyError, UnicodeError):
@@ -186,12 +217,23 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
             inspect_result = control(["inspect", "--format", "{{.State.OOMKilled}}", name], timeout=5)
             if inspect_result.returncode == 0 and inspect_result.stdout.strip() == "true":
                 failure = "memory_limit"
+        watchdog_record=Path(temporary.name)/'watchdog.json'
+        if watchdog_record.exists():
+            reason=json.loads(watchdog_record.read_text()).get('reason')
+            if reason=='timeout':
+                failure='timeout'
+            elif reason=='startup_timeout':
+                failure='infrastructure_error'
+                failure_message='Execution runtime did not start within 30 seconds'
         if not failure and (process.returncode != 0 or protocol_result is None or pending.strip()):
             failure = "infrastructure_error"
             failure_message = "The execution runtime exited without a complete result"
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         stop("infrastructure_error", str(exc)[:2000])
     finally:
+        cleanup_start = time.monotonic()
+        heartbeat_stop.set()
+        heartbeat_wake.set()
         if process is not None and process.poll() is None:
             stop(failure or "infrastructure_error")
         if mode == "docker":
@@ -213,6 +255,23 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
                         pipe.close()
                     except OSError:
                         pass
+        if watchdog is not None:
+            try:
+                watchdog.stdin.write(b'done\n')
+                watchdog.stdin.flush()
+                watchdog.stdin.close()
+            except (OSError,BrokenPipeError):
+                pass
+            finally:
+                try:
+                    watchdog.stdin.close()
+                except (OSError,BrokenPipeError):
+                    pass
+            try:
+                watchdog.wait(timeout=12)
+            except subprocess.TimeoutExpired:
+                watchdog.kill()
+                watchdog.wait(timeout=5)
         temporary.cleanup()
     result = {"schemaVersion": 1, "language": language, "outcome": failure or (protocol_result or {}).get("outcome", "infrastructure_error"),
               "steps": events, "stdout": "".join(stdout), "stderr": "".join(stderr), "objects": (protocol_result or {}).get("objects", {}),
@@ -223,7 +282,13 @@ def execute(job, heartbeat=None, mode="docker", policy=None, attempt_id=None):
                 result[key] = protocol_result[key]
     if failure_message:
         result["error"] = {"type": "ExecutionError", "message": failure_message, "line": None}
-    metrics["executionMs"] = result["durationMs"]
+    if protocol_result is not None and not failure:
+        result["durationMs"] = max(0, protocol_result.get("durationMs", result["durationMs"]))
+    metrics["executionMs"] = max(0, ((runtime_end or cleanup_start or time.monotonic()) - runtime_start) * 1000) if runtime_start is not None else 0
+    metrics["runtimeStarted"] = 1 if runtime_start is not None else 0
+    metrics["cleanupMs"] = (time.monotonic() - (cleanup_start or time.monotonic())) * 1000
+    if compile_start is not None and "compileMs" not in metrics:
+        metrics["compileMs"] = ((runtime_end or cleanup_start) - compile_start) * 1000
     metrics["traceBytes"] = trace_bytes
     metrics["outputBytes"] = output_bytes
     return result, metrics

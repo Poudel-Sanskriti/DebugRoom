@@ -130,6 +130,20 @@ export async function migrate(db: Database) {
     `.execute(connection);
           },
         },
+        "0002_attempt_policy": {
+          up: async (connection: Database) => {
+            await sql`ALTER TABLE run_attempts ADD COLUMN policy jsonb NOT NULL DEFAULT '{}'`.execute(
+              connection,
+            );
+          },
+        },
+        "0003_local_retention": {
+          up: async (connection: Database) => {
+            await sql`ALTER TABLE workspaces ALTER COLUMN expires_at DROP NOT NULL`.execute(
+              connection,
+            );
+          },
+        },
       }),
     },
   });

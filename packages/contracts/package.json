@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./validate-trace": "./src/validate-trace.ts"
+  },
   "dependencies": {
     "@sinclair/typebox": "0.34.52"
   }

@@ -3,6 +3,7 @@ import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
 import staticFiles from "@fastify/static";
 import { Type } from "@sinclair/typebox";
+import { traceValidationError } from "@debugroom/contracts/validate-trace";
 import { TypeCompiler } from "@sinclair/typebox/compiler";
 import { timingSafeEqual } from "node:crypto";
 import path from "node:path";
@@ -17,6 +18,7 @@ import {
 import { Store, type Actor } from "./store.ts";
 import type { Artifacts } from "./artifacts.ts";
 import { ApiError } from "./errors.ts";
+import { instrumentRequests } from "./telemetry.ts";
 import { registerOperations } from "./operations.ts";
 import { registerCollaboration } from "./collaboration-routes.ts";
 import { discoverPython } from "./discovery.ts";
@@ -26,6 +28,8 @@ export type AppConfig = {
   origin: string;
   localAuth: boolean;
   localLoginToken?: string;
+  localProxyAuth?: boolean;
+  trustProxy?: string[];
   runnerToken: string;
   logger?: boolean;
   serveStatic?: boolean;
@@ -69,11 +73,18 @@ export async function buildApp(
         }
       : false,
     logController: new LogController({ disableRequestLogging: true }),
+    trustProxy: config.trustProxy ?? false,
   });
   app.decorateRequest("actor", null);
+  instrumentRequests(app);
   await app.register(cookie);
   await app.register(rateLimit, {
     global: true,
+    hook: "preHandler",
+    keyGenerator: (request) =>
+      request.actor
+        ? `${request.actor.role}:${request.actor.tutorId ?? request.actor.grantId}`
+        : request.ip,
     max: 240,
     timeWindow: "1 minute",
     allowList: (request) => request.url.startsWith("/internal/worker/"),
@@ -225,7 +236,10 @@ export async function buildApp(
     async (request, reply) => {
       if (!config.localAuth)
         throw new ApiError(404, "Local sign-in is unavailable");
-      if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.ip))
+      if (
+        !config.localProxyAuth &&
+        !["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.ip)
+      )
         throw new ApiError(
           403,
           "Local sign-in is available only on this machine",
@@ -395,11 +409,23 @@ export async function buildApp(
       );
     },
   );
-  app.get<{ Params: { id: string } }>(
+  app.get<{ Params: { id: string }; Querystring: { before?: string } }>(
     "/api/workspaces/:id/runs",
-    { schema: { params: Type.Object({ id: Id }) } },
+    {
+      schema: {
+        params: Type.Object({ id: Id }),
+        querystring: Type.Object(
+          { before: Type.Optional(Id) },
+          { additionalProperties: false },
+        ),
+      },
+    },
     async (request) => ({
-      runs: await store.listRuns(actor(request), request.params.id),
+      runs: await store.listRuns(
+        actor(request),
+        request.params.id,
+        request.query.before,
+      ),
     }),
   );
   app.get<{ Params: { id: string } }>(
@@ -444,7 +470,13 @@ export async function buildApp(
     async (request) => store.getSnapshot(actor(request), request.params.id),
   );
   app.post<{
-    Body: { workerId: string; runtime: string; languages: string[] };
+    Body: {
+      workerId: string;
+      runtime: string;
+      languages: string[];
+      runtimeImages?: Record<string, string>;
+      watchdogScope?: "host" | "container";
+    };
   }>(
     "/internal/worker/claim",
     {
@@ -452,6 +484,14 @@ export async function buildApp(
         body: Type.Object(
           {
             workerId: Type.String({ minLength: 1, maxLength: 120 }),
+            watchdogScope: Type.Optional(
+              Type.Union([Type.Literal("host"), Type.Literal("container")]),
+            ),
+            runtimeImages: Type.Optional(
+              Type.Record(Type.String(), Type.String({ maxLength: 200 }), {
+                maxProperties: 2,
+              }),
+            ),
             runtime: Type.Union([
               Type.Literal("docker"),
               Type.Literal("local-inspected"),
@@ -471,6 +511,11 @@ export async function buildApp(
           403,
           "Worker runtime does not match the configured execution policy",
         );
+      if (!config.localAuth && request.body.watchdogScope !== "host")
+        throw new ApiError(
+          403,
+          "Hosted execution requires an independent host watchdog",
+        );
       await store.reapLeases();
       return {
         job: await store
@@ -478,8 +523,9 @@ export async function buildApp(
             request.body.workerId,
             request.body.runtime,
             request.body.languages,
+            request.body.runtimeImages,
           )
-          .then((job) => (job ? { ...job, limits } : null)),
+          .then((job) => job),
       };
     },
   );
@@ -536,7 +582,12 @@ export async function buildApp(
       for (let i = 0; i < result.steps.length; i++)
         if (result.steps[i]!.index !== i)
           throw new ApiError(400, "Trace steps are out of sequence");
+      const source = await store.attemptSource(attemptId, leaseToken);
+      const invalid = traceValidationError(result, source);
+      if (invalid) throw new ApiError(400, invalid);
+      const writeStarted = performance.now();
       const artifact = await artifacts.put(attemptId, result);
+      metrics.artifactWriteMs = performance.now() - writeStarted;
       try {
         return await store.complete(
           attemptId,

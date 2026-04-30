@@ -60,6 +60,25 @@ async function run() {
 }
 
 describe("PostgreSQL invariants", () => {
+  it("pages older history without repeating the cursor run", async () => {
+    const w = await workspace(),
+      b = w.branches[0]!;
+    const first = await store.createRun(actor, b.id, draft, 0, randomUUID());
+    const second = await store.createRun(actor, b.id, draft, 0, randomUUID());
+    expect((await store.listRuns(actor, w.id))[0]!.id).toBe(second.id);
+    expect(
+      (await store.listRuns(actor, w.id, second.id)).map((run) => run.id),
+    ).toEqual([first.id]);
+  });
+
+  it("keeps native study workspaces without an automatic expiry", async () => {
+    const localStore = new Store(db, null),
+      w = await localStore.createWorkspace(actor, "Local study");
+    expect(w.expiresAt).toBeNull();
+    await localStore.saveDraft(actor, w.branches[0]!.id, 0, draft);
+    expect((await localStore.workspace(actor, w.id)).expiresAt).toBeNull();
+  });
+
   it("keeps run snapshots independent of later draft edits and forbids updating a snapshot", async () => {
     const w = await workspace(),
       branch = w.branches[0]!;

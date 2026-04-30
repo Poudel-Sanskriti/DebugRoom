@@ -8,6 +8,7 @@ export const limits = {
   steps: 10_000,
   wallMs: 60_000,
   warningMs: 5_000,
+  compileMs: 20_000,
   outputBytes: 256 * 1024,
   traceBytes: 16 * 1024 * 1024,
   eventBytes: 256 * 1024,
@@ -212,7 +213,7 @@ export type Workspace = {
   title: string;
   role: "tutor" | "student";
   createdAt: string;
-  expiresAt: string;
+  expiresAt: string | null;
   branches: Branch[];
   studentRevision: number;
   invitationActive: boolean;
@@ -242,3 +243,11 @@ export type SharedRevision = {
   createdAt: string;
   snapshotId: string | null;
 };
+
+export function executionPolicy(language: Language) {
+  return {
+    ...limits,
+    memoryMb: language === "cpp" ? 512 : 256,
+    workMb: language === "cpp" ? 64 : 0,
+  };
+}

@@ -65,6 +65,12 @@ export async function loadConfig(): Promise<
     throw new Error(
       "Hosted C++ requires an explicitly validated dedicated-vm profile",
     );
+  if (
+    executionMode === "local-inspected" &&
+    process.env.DEBUGROOM_HOST &&
+    !["127.0.0.1", "::1"].includes(process.env.DEBUGROOM_HOST)
+  )
+    throw new Error("Inspected local execution must remain bound to loopback");
   const github =
     process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
       ? {
@@ -81,15 +87,18 @@ export async function loadConfig(): Promise<
     origin,
     localAuth: !production,
     localLoginToken,
+    localProxyAuth:
+      !production && process.env.DEBUGROOM_LOCAL_PROXY_AUTH === "1",
+    trustProxy: process.env.DEBUGROOM_TRUST_PROXY?.split(",").filter(Boolean),
     runnerToken,
     databaseUrl,
     port: Number(process.env.PORT ?? 3001),
-    host: production ? "0.0.0.0" : "127.0.0.1",
+    host: process.env.DEBUGROOM_HOST ?? (production ? "0.0.0.0" : "127.0.0.1"),
     executionMode,
     languages: cppEnabled ? ["python", "cpp"] : ["python"],
     python: process.env.PYTHON_BIN ?? "python3",
     github,
     logger: true,
-    serveStatic: production,
+    serveStatic: production || process.env.DEBUGROOM_SERVE_STATIC === "1",
   };
 }

@@ -41,6 +41,22 @@ class TraceTests(unittest.TestCase):
         self.assertIn('deque', kinds)
         self.assertIn('Node', kinds)
 
+    def test_private_names_and_decorated_entry_points(self):
+        private=run('def _answer():\n    __value = 7\n    return __value\n')
+        self.assertEqual(private[-1]['returnValue']['value'], '7')
+        self.assertTrue(any('__value' in event['frames'][-1]['locals'] for event in steps(private, '_answer')))
+        cached=run('from functools import lru_cache\n@lru_cache(None)\ndef fib(n):\n    if n < 2:\n        return n\n    return fib(n-1)+fib(n-2)\n', [6])
+        self.assertEqual(cached[-1]['outcome'], 'completed')
+        self.assertEqual(cached[-1]['returnValue']['value'], '8')
+
+    def test_long_variable_names_remain_distinct(self):
+        left='a'*205+'x'
+        right='a'*205+'y'
+        records=run('def example():\n    '+left+'=1\n    '+right+'=2\n    return '+left+'+'+right+'\n')
+        final=steps(records,'example')[-1]['frames'][-1]['locals']
+        self.assertEqual(final[left]['value'],'1')
+        self.assertEqual(final[right]['value'],'2')
+
     def test_before_line_and_return(self):
         records = run('def add(a, b):\n    total = a + b\n    return total\n', [2, 3])
         events = steps(records, 'add')

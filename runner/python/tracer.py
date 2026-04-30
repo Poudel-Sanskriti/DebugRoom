@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from values import Snapshotter, fingerprint
 
 FILENAME = "<debugroom>"
+INTERNAL_NAMES = {"__builtins__", "__name__", "__file__", "__package__", "__loader__", "__spec__", "__doc__", "__annotations__", "__qualname__", "__module__", "__firstlineno__", "__static_attributes__"}
 PROTOCOL = sys.stdout
 STARTED = time.monotonic()
 
@@ -47,7 +48,7 @@ def discover(source):
     tree = ast.parse(source, filename=FILENAME)
     candidates = []
     def add(node, prefix=""):
-        if not isinstance(node, ast.FunctionDef) or node.name.startswith("_"):
+        if not isinstance(node, ast.FunctionDef) or (prefix and node.name.startswith("__") and node.name.endswith("__")):
             return
         if any(isinstance(child, (ast.Yield, ast.YieldFrom)) for child in ast.walk(node)):
             return
@@ -131,14 +132,14 @@ class Collector:
                 self.frames[identity] = f"f{self.next_frame}"
                 self.next_frame += 1
             frame_id = self.frames[identity]
-            visible = [(name, value) for name, value in current.f_locals.items() if not name.startswith("__")]
-            local_values = {name[:200]: self.snapshots.value(value) for name, value in visible[:256]}
+            visible = [(name, value) for name, value in current.f_locals.items() if name not in INTERNAL_NAMES]
+            local_values = {name: self.snapshots.value(value) for name, value in visible[:256]}
             frames.append({"id": frame_id, "function": current.f_code.co_name[:200], "line": max(1, current.f_lineno),
                            "locals": local_values, "changes": {}, "truncated": len(visible) > 256})
         record = {"index": self.count, "kind": event, "line": max(1, frame.f_lineno), "frameId": self.frames[id(frame)],
                   "frames": frames, "objects": self.snapshots.objects}
-        globals_ = [(name, value) for name, value in frame.f_globals.items() if not name.startswith("__")]
-        record["globals"] = {name[:200]: self.snapshots.value(value) for name, value in globals_[:256]}
+        globals_ = [(name, value) for name, value in frame.f_globals.items() if name not in INTERNAL_NAMES]
+        record["globals"] = {name: self.snapshots.value(value) for name, value in globals_[:256]}
         record["globalsTruncated"] = len(globals_) > 256
         if event == "return":
             record["returnValue"] = self.snapshots.value(arg)
@@ -244,13 +245,13 @@ def main():
                 function = getattr(instance, entry.split(".", 1)[1])
             else:
                 function = namespace.get(entry)
-            if type(function) not in (types.FunctionType, types.MethodType) or inspect.iscoroutinefunction(function) or inspect.isgeneratorfunction(function):
+            if not callable(function) or inspect.iscoroutinefunction(function) or inspect.isgeneratorfunction(function) or inspect.isasyncgenfunction(function):
                 sys.settrace(None)
                 collector.finish("input_error", {"type": "TypeError", "message": "Entry point is not a synchronous function", "line": None})
                 return
             try:
                 bound = inspect.signature(function).bind(*supplied.get("args", []), **supplied.get("kwargs", {}))
-            except TypeError as exc:
+            except (TypeError, ValueError) as exc:
                 sys.settrace(None)
                 collector.finish("input_error", error_detail(exc))
                 return

@@ -1,4 +1,9 @@
 import os
+import subprocess
+import sys
+import time
+import uuid
+from pathlib import Path
 import unittest
 from supervisor import execute, control
 
@@ -55,6 +60,45 @@ class SandboxTests(unittest.TestCase):
         result=self.run_code('with open("/tmp/large", "wb") as f:\n    for _ in range(40):\n        f.write(b"x" * 1024 * 1024)')
         self.assertEqual(result['outcome'],'runtime_error')
         self.assertIn(result['error']['type'],['OSError'])
+
+    def test_slow_control_requests_do_not_extend_execution_deadline(self):
+        def slow_heartbeat(started):
+            time.sleep(1)
+            return {'active':True,'cancel':False}
+        started=time.monotonic()
+        result=self.run_code('import time\ntime.sleep(30)',policy={'wallMs':200},heartbeat=slow_heartbeat)
+        self.assertEqual(result['outcome'],'timeout')
+        self.assertLess(time.monotonic()-started,3)
+
+    def test_worker_death_does_not_leave_running_code(self):
+        attempt=str(uuid.uuid4())
+        code="import sys;sys.path.insert(0,"+repr(str(Path(__file__).resolve().parent))+");from supervisor import execute;execute({'language':'python','code':'import time\\ntime.sleep(30)','input':{'args':[],'kwargs':{}}},attempt_id="+repr(attempt)+")"
+        worker=subprocess.Popen([sys.executable,'-c',code],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        name='debugroom-'+attempt
+        try:
+            deadline=time.monotonic()+10
+            started=False
+            while time.monotonic()<deadline:
+                running=control(['inspect','--format','{{.State.Running}}',name])
+                if running.returncode==0 and running.stdout.strip()=='true':
+                    started=True
+                    break
+                time.sleep(0.05)
+            self.assertTrue(started,'The test execution did not start')
+            worker.kill()
+            worker.wait(timeout=5)
+            deadline=time.monotonic()+6
+            while time.monotonic()<deadline:
+                running=control(['inspect','--format','{{.State.Running}}',name])
+                if running.returncode!=0:
+                    break
+                time.sleep(0.1)
+            self.assertNotEqual(control(['inspect',name]).returncode,0,'The watchdog must remove code execution after worker death')
+        finally:
+            if worker.poll() is None:
+                worker.kill()
+                worker.wait(timeout=5)
+            control(['rm','-f',name])
 
     def test_z_no_leftover_execution_containers(self):
         result=control(['ps','-a','--filter','label=dev.debugroom.execution=true','--format','{{.Names}}'])
