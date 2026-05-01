@@ -1,0 +1,14 @@
+# Replace every placeholder after choosing the account, DNS name, and budget.
+# Publish tested linux/arm64 images to private ECR before applying this stack.
+aws_region = "us-east-2"
+name = "debugroom"
+domain_name = "debugroom.example.com"
+route53_zone_id = ""
+app_image = "000000000000.dkr.ecr.us-east-2.amazonaws.com/debugroom-app@sha256:REPLACE_WITH_DIGEST"
+agent_image = "000000000000.dkr.ecr.us-east-2.amazonaws.com/debugroom-agent@sha256:REPLACE_WITH_DIGEST"
+python_image = "000000000000.dkr.ecr.us-east-2.amazonaws.com/debugroom-python@sha256:REPLACE_WITH_DIGEST"
+image_repository_arns = ["arn:aws:ecr:us-east-2:000000000000:repository/debugroom-app", "arn:aws:ecr:us-east-2:000000000000:repository/debugroom-agent", "arn:aws:ecr:us-east-2:000000000000:repository/debugroom-python"]
+github_oauth_secret_arn = "arn:aws:secretsmanager:us-east-2:000000000000:secret:debugroom/github-REPLACE"
+postgres_engine_version = "18.6" # Verify support in your selected RDS region first.
+monthly_budget_usd = 0 # Required: choose a positive amount; alerts are not a hard spending cap.
+budget_email = ""

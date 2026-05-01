@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y --no-install-recommends docker.io awscli python3 curl ca-certificates
+systemctl enable --now docker
+install -d -m 700 /opt/debugroom
+install -d -m 700 -o 10001 -g 10001 /var/lib/debugroom
+curl -fsS https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -o /var/lib/debugroom/rds-ca.pem
+chmod 644 /var/lib/debugroom/rds-ca.pem
+python3 - <<'PY'
+import json, pathlib, subprocess, urllib.parse
+region='${region}'
+def secret(arn):
+    return subprocess.check_output(['aws','secretsmanager','get-secret-value','--region',region,'--secret-id',arn,'--query','SecretString','--output','text'],text=True).strip()
+database=json.loads(secret('${database_secret}'))
+github=json.loads(secret('${github_secret}'))
+values={
+    'NODE_ENV':'production', 'DEBUGROOM_ORIGIN':'https://${domain}',
+    'DEBUGROOM_HOST':'127.0.0.1', 'DEBUGROOM_TRUST_PROXY':'127.0.0.1,::1',
+    'DEBUGROOM_RUNNER_TOKEN':secret('${runner_secret}'),
+    'GITHUB_CLIENT_ID':github['clientId'], 'GITHUB_CLIENT_SECRET':github['clientSecret'],
+    'DATABASE_URL':'postgresql://'+urllib.parse.quote(database['username'],safe='')+':'+urllib.parse.quote(database['password'],safe='')+'@${database_host}:5432/debugroom?sslmode=verify-full&sslrootcert=/app/.data/rds-ca.pem',
+    'TRACE_BUCKET':'${bucket}', 'AWS_REGION':region,
+    'DEBUGROOM_EXECUTION_MODE':'docker', 'DEBUGROOM_ENABLE_CPP':'0', 'PORT':'3001'
+}
+if any('\n' in str(value) or '\r' in str(value) for value in values.values()):
+    raise RuntimeError('Environment secrets must be single-line values')
+p=pathlib.Path('/opt/debugroom/server.env');p.write_text(''.join(key+'='+str(value)+'\n' for key,value in values.items()));p.chmod(0o600)
+PY
+app_image='${app_image}'
+registry="$${app_image%%/*}"
+aws ecr get-login-password --region '${region}' | docker login --username AWS --password-stdin "$registry"
+docker pull "$app_image"
+docker run -d --name debugroom-api --restart unless-stopped --network host --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m --env-file /opt/debugroom/server.env --mount type=bind,src=/var/lib/debugroom,dst=/app/.data --log-driver awslogs --log-opt awslogs-region='${region}' --log-opt awslogs-group='${log_group}' --log-opt awslogs-stream=api "$app_image"
+cat > /opt/debugroom/Caddyfile <<'CADDY'
+${domain} {
+    encode zstd gzip
+    header Referrer-Policy no-referrer
+    header X-Content-Type-Options nosniff
+    header Strict-Transport-Security "max-age=31536000"
+    header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'"
+    reverse_proxy 127.0.0.1:3001
+}
+CADDY
+docker run -d --name debugroom-edge --restart unless-stopped --network host --mount type=bind,src=/opt/debugroom/Caddyfile,dst=/etc/caddy/Caddyfile,readonly --mount type=volume,src=debugroom-caddy,dst=/data caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648

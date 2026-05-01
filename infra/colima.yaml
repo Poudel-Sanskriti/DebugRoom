@@ -1,0 +1,14 @@
+# Dedicated local runtime. Never share the repository, home, or database directory.
+cpu: 2
+memory: 4
+disk: 20
+vmType: vz
+runtime: docker
+autoActivate: false
+forwardAgent: false
+mountType: virtiofs
+mounts:
+  - location: /private/tmp/debugroom-vm-empty
+    writable: false
+network:
+  address: false

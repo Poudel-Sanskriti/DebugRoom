@@ -1,0 +1,61 @@
+# Local packaged demo. Hosted workers belong on a separate execution host.
+services:
+  database:
+    image: postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+    environment:
+      POSTGRES_USER: debugroom
+      POSTGRES_DB: debugroom
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a random database password}
+    volumes:
+      - database:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U debugroom -d debugroom"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  api:
+    build: .
+    image: debugroom-app:local
+    ports:
+      - "127.0.0.1:${DEBUGROOM_PORT:-3031}:3001"
+    environment:
+      DATABASE_URL: postgresql://debugroom:${POSTGRES_PASSWORD}@database:5432/debugroom
+      DEBUGROOM_RUNNER_TOKEN: ${DEBUGROOM_RUNNER_TOKEN:?Set a random worker control token}
+      DEBUGROOM_ORIGIN: http://127.0.0.1:${DEBUGROOM_PORT:-3031}
+      DEBUGROOM_HOST: 0.0.0.0
+      DEBUGROOM_SERVE_STATIC: "1"
+      DEBUGROOM_LOCAL_PROXY_AUTH: "1"
+      DEBUGROOM_EXECUTION_MODE: docker
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m
+    volumes:
+      - application-data:/app/.data
+    depends_on:
+      database:
+        condition: service_healthy
+  worker:
+    build:
+      context: .
+      dockerfile: runner/agent/Dockerfile
+    image: debugroom-agent:local
+    environment:
+      DEBUGROOM_API_URL: http://api:3001
+      DEBUGROOM_RUNNER_TOKEN: ${DEBUGROOM_RUNNER_TOKEN}
+      DEBUGROOM_EXECUTION_MODE: docker
+      DEBUGROOM_LANGUAGES: python,cpp
+      PYTHON_CONTAINER_RUNTIME: ${PYTHON_CONTAINER_RUNTIME:-runsc}
+      CPP_CONTAINER_RUNTIME: runc
+      PYTHON_IMAGE: debugroom-python:local
+      CPP_IMAGE: debugroom-cpp:local
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    volumes:
+      # Only this trusted control agent has the socket. Execution containers do not.
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - api
+volumes:
+  database:
+  application-data:

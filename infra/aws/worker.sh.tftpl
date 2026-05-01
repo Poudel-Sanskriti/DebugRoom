@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y --no-install-recommends docker.io awscli python3 curl ca-certificates bzip2
+systemctl enable --now docker
+install -d -m 755 /opt/debugroom
+cat > /opt/debugroom/install-gvisor.sh <<'GVisorInstaller'
+${gvisor_installer}
+GVisorInstaller
+bash /opt/debugroom/install-gvisor.sh
+agent_image='${agent_image}'
+python_image='${python_image}'
+registry="$${agent_image%%/*}"
+aws ecr get-login-password --region '${region}' | docker login --username AWS --password-stdin "$registry"
+docker pull "$agent_image"
+docker pull "$python_image"
+container_id="$(docker create "$agent_image")"
+docker cp "$container_id:/app/runner" /opt/debugroom/runner
+docker rm "$container_id"
+# Run the control agent on the dedicated host: its detached watchdog survives main-process death.
+useradd --system --create-home --groups docker debugroom || true
+install -d -m 750 -o debugroom -g debugroom /var/log/debugroom
+python3 - <<'PY'
+import pathlib, subprocess
+secret=subprocess.check_output(['aws','secretsmanager','get-secret-value','--region','${region}','--secret-id','${runner_secret}','--query','SecretString','--output','text'],text=True).strip()
+values={'DEBUGROOM_API_URL':'https://${domain}','DEBUGROOM_RUNNER_TOKEN':secret,'DEBUGROOM_EXECUTION_MODE':'docker','DEBUGROOM_LANGUAGES':'python','DEBUGROOM_WATCHDOG_SCOPE':'host','PYTHON_CONTAINER_RUNTIME':'runsc','PYTHON_IMAGE':'${python_image}'}
+if any('\n' in value or '\r' in value for value in values.values()):raise RuntimeError('Worker configuration must be single-line values')
+p=pathlib.Path('/opt/debugroom/worker.env');p.write_text(''.join(key+'='+value+'\n' for key,value in values.items()));p.chmod(0o600)
+PY
+chown debugroom:debugroom /opt/debugroom/worker.env
+cat > /etc/systemd/system/debugroom-worker.service <<'UNIT'
+[Unit]
+Description=DebugRoom execution control agent
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+[Service]
+User=debugroom
+Group=debugroom
+SupplementaryGroups=docker
+WorkingDirectory=/opt/debugroom
+EnvironmentFile=/opt/debugroom/worker.env
+ExecStart=/usr/bin/python3 -u /opt/debugroom/runner/agent/main.py
+Restart=on-failure
+RestartSec=3
+KillMode=process
+TimeoutStopSec=15
+StandardOutput=append:/var/log/debugroom/worker.log
+StandardError=append:/var/log/debugroom/worker.log
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now debugroom-worker
+curl -fsS https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/arm64/latest/amazon-cloudwatch-agent.deb -o /tmp/cloudwatch-agent.deb
+dpkg -i /tmp/cloudwatch-agent.deb
+cat > /opt/debugroom/cloudwatch.json <<'LOGS'
+{"logs":{"logs_collected":{"files":{"collect_list":[{"file_path":"/var/log/debugroom/worker.log","log_group_name":"${log_group}","log_stream_name":"{instance_id}"}]}}}}
+LOGS
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/debugroom/cloudwatch.json
+cat > /etc/logrotate.d/debugroom <<'ROTATE'
+/var/log/debugroom/worker.log {
+    daily
+    rotate 7
+    compress
+    copytruncate
+    missingok
+    notifempty
+}
+ROTATE
