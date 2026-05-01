@@ -22,6 +22,7 @@ const message = (error: unknown) =>
   error instanceof Error ? error.message : "The request could not be completed";
 
 export function useWorkspace() {
+  const [historyHasMore, setHistoryHasMore] = useState(false);
   const [config, setConfig] = useState<RuntimeConfig | null>(null),
     [session, setSession] = useState<Session | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]),
@@ -233,9 +234,29 @@ export function useWorkspace() {
 
   const refreshHistory = useCallback(async (id: string) => {
     const list = await api<{ runs: Run[] }>(`/api/workspaces/${id}/runs`);
-    if (current.current?.workspaceId === id) setHistory(list.runs);
+    if (current.current?.workspaceId === id) {
+      setHistory(list.runs);
+      setHistoryHasMore(list.runs.length === 100);
+    }
     return list.runs;
   }, []);
+  const loadOlderRuns = useCallback(async () => {
+    if (!workspace || !history.length) return;
+    try {
+      const page = await api<{ runs: Run[] }>(
+        `/api/workspaces/${workspace.id}/runs?before=${history.at(-1)!.id}`,
+      );
+      setHistory((previous) => [
+        ...previous,
+        ...page.runs.filter(
+          (run) => !previous.some((item) => item.id === run.id),
+        ),
+      ]);
+      setHistoryHasMore(page.runs.length === 100);
+    } catch (error) {
+      setError(message(error));
+    }
+  }, [workspace?.id, history]);
   const selectRun = useCallback(async (id: string) => {
     const request = ++runRequest.current;
     try {
@@ -269,7 +290,12 @@ export function useWorkspace() {
       try {
         const updated = await api<Run>(`/api/runs/${run.id}`);
         if (alive) {
-          setRun(updated);
+          setRun((current) =>
+            current?.id === updated.id &&
+            !(current.status === "finished" && updated.status !== "finished")
+              ? updated
+              : current,
+          );
           if (updated.status === "finished")
             await refreshHistory(updated.workspaceId);
         }
@@ -324,6 +350,23 @@ export function useWorkspace() {
     },
     [flush, installBranch],
   );
+  const renameWorkspace = useCallback(async (title: string) => {
+    if (!current.current) return false;
+    try {
+      const updated = await api<Workspace>(
+        `/api/workspaces/${current.current.workspaceId}`,
+        { method: "PATCH", body: { title } },
+      );
+      setWorkspace(updated);
+      setWorkspaces((previous) =>
+        previous.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      return true;
+    } catch (error) {
+      setError(message(error));
+      return false;
+    }
+  }, []);
   const startRun = useCallback(async () => {
     if (submitting || !current.current) return;
     setSubmitting(true);
@@ -448,6 +491,7 @@ export function useWorkspace() {
     error,
     loading,
     history,
+    historyHasMore,
     run,
     submitting,
     invitation,
@@ -455,9 +499,11 @@ export function useWorkspace() {
     flush,
     chooseWorkspace,
     createWorkspace,
+    renameWorkspace,
     startRun,
     stopRun,
     selectRun,
+    loadOlderRuns,
     reloadDraft,
     retrySave,
     joinInvitation,

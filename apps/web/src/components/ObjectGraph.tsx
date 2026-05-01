@@ -45,14 +45,14 @@ export function objectRelationships(
           label: name.slice(0, 14),
         });
         if (!seen.has(value.id))
-          queue.push({ id: value.id, depth: Math.min(current.depth + 1, 7) });
+          queue.push({ id: value.id, depth: current.depth + 1 });
       }
     }
   }
   return {
     nodes,
     edges: edges.filter((edge) => seen.has(edge.to)),
-    truncated: queue.length > 0,
+    truncated: queue.some((item) => !seen.has(item.id) && !!objects[item.id]),
   };
 }
 export default function ObjectGraph({
@@ -119,7 +119,7 @@ export default function ObjectGraph({
           viewBox={`0 0 ${width} ${height}`}
           role="img"
           aria-label={`Object references reachable from ${chosen[0]}`}
-          style={{ minWidth: width, maxHeight: 330 }}
+          style={{ minWidth: width, width, height }}
         >
           <defs>
             <marker

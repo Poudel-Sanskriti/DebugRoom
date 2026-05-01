@@ -47,7 +47,7 @@ export default function TraceInspector({
   run: Run | null;
   index: number;
   onIndex: (index: number) => void;
-  onViewSource: () => void;
+  onViewSource: (line?: number) => void;
 }) {
   const [playing, setPlaying] = useState(false),
     [speed, setSpeed] = useState(700),
@@ -150,7 +150,7 @@ export default function TraceInspector({
               Run {run.id.slice(0, 8)} · revision{" "}
               {run.snapshot?.revision ?? "—"}
             </span>
-            <button className="text-button" onClick={onViewSource}>
+            <button className="text-button" onClick={() => onViewSource()}>
               View run source ↗
             </button>
           </div>
@@ -188,7 +188,12 @@ export default function TraceInspector({
                     : outcomeName(run.outcome)}
                 </strong>
                 {run.result?.error?.line && (
-                  <button onClick={onViewSource} className="text-button">
+                  <button
+                    onClick={() =>
+                      onViewSource(run.result?.error?.line ?? undefined)
+                    }
+                    className="text-button"
+                  >
                     At source line {run.result.error.line}
                   </button>
                 )}
@@ -215,7 +220,16 @@ export default function TraceInspector({
                           : "EXCEPTION OBSERVED"}
                   </span>
                   <strong data-testid="current-line">
-                    Line {event.line} <span>in {frame?.function}()</span>
+                    Line {event.line}{" "}
+                    <span>
+                      in{" "}
+                      {
+                        event.frames.find(
+                          (candidate) => candidate.id === event.frameId,
+                        )?.function
+                      }
+                      ()
+                    </span>
                   </strong>
                 </div>
                 <span className="line-event">{event.kind}</span>
@@ -279,7 +293,7 @@ export default function TraceInspector({
                         key={pin.frameId + pin.name}
                       >
                         <code>
-                          {pin.function}.{pin.name}
+                          {pin.function} · {pin.frameId}.{pin.name}
                         </code>
                         {value ? (
                           <ValueView value={value} objects={objects} />

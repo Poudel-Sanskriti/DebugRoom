@@ -2298,3 +2298,26 @@ h3 {
   font-size: 11px;
   color: #91a4bf;
 }
+.graph-scroll {
+  max-height: 330px;
+}
+.workspace-title {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  gap: 12px;
+  justify-content: flex-start;
+  text-align: left;
+}
+.workspace-title svg {
+  color: #91a5c1;
+  opacity: 0.5;
+}
+.workspace-title:hover svg,
+.workspace-title:focus-visible svg {
+  opacity: 1;
+}

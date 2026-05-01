@@ -9,15 +9,17 @@ const root = process.cwd(),
 let ownedDatabase: Awaited<ReturnType<typeof startLocalPostgres>> | undefined;
 let pool: Pool | undefined;
 try {
-  const password = (
-    await readFile(path.join(root, ".data/postgres-password"), "utf8")
-  ).trim();
-  pool = new Pool({
-    connectionString: `postgresql://debugroom:${password}@127.0.0.1:55432/postgres`,
-    connectionTimeoutMillis: 1000,
-  });
+  let connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    const password = (
+      await readFile(path.join(root, ".data/postgres-password"), "utf8")
+    ).trim();
+    connectionString = `postgresql://debugroom:${password}@127.0.0.1:55432/postgres`;
+  }
+  pool = new Pool({ connectionString, connectionTimeoutMillis: 1000 });
   await pool.query("select 1");
-} catch {
+} catch (error) {
+  if (process.env.DATABASE_URL) throw error;
   ownedDatabase = await startLocalPostgres(root);
 } finally {
   await pool?.end();

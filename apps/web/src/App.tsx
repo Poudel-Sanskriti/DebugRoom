@@ -23,11 +23,13 @@ import {
   RotateCw,
   Users,
   Columns2,
+  Pencil,
 } from "lucide-react";
 import { useWorkspace } from "./hooks/useWorkspace";
 import TraceInspector, { outcomeName } from "./components/TraceInspector";
 import CollaborationPanel from "./components/CollaborationPanel";
 import RunComparison from "./components/RunComparison";
+import Modal from "./components/Modal";
 import { examples } from "./examples";
 import { api } from "./api";
 import type { Draft, Run } from "@debugroom/contracts";
@@ -45,6 +47,7 @@ export default function App() {
   const model = useWorkspace();
   const { workspace, branch, draft, run } = model;
   const [localKey, setLocalKey] = useState("");
+  const [renameTitle, setRenameTitle] = useState<string | null>(null);
   const [index, setIndex] = useState(0),
     [sourceView, setSourceView] = useState<"draft" | "run">("draft"),
     [bottomTab, setBottomTab] = useState<"input" | "problem">("input");
@@ -110,13 +113,13 @@ export default function App() {
     };
   }, [draft?.code, draft?.language]);
   useEffect(() => {
-    if (!workspace?.invitationActive) return;
+    if (!workspace) return;
     const timer = setInterval(
       () =>
         void model
           .refreshWorkspace()
           .catch((error) => model.setError(error.message)),
-      3500,
+      workspace.invitationActive ? 3500 : 15000,
     );
     return () => clearInterval(timer);
   }, [workspace?.id, workspace?.invitationActive, model.refreshWorkspace]);
@@ -134,7 +137,20 @@ export default function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [draft?.code, model.submitting, startRun]);
-  const viewRunSource = useCallback(() => setSourceView("run"), []);
+  const viewRunSource = useCallback(
+    (line?: number) => {
+      setSourceView("run");
+      if (line && run?.result) {
+        for (let i = run.result.steps.length - 1; i >= 0; i--) {
+          if (run.result.steps[i]!.line === line) {
+            setIndex(i);
+            break;
+          }
+        }
+      }
+    },
+    [run?.result],
+  );
   function loadExample(id: string) {
     const example = examples.find((item) => item.id === id);
     if (example) {
@@ -333,7 +349,20 @@ export default function App() {
                 <span className="live-dot" /> WORKSPACE /{" "}
                 {draft?.language === "cpp" ? "C++" : "PYTHON"}
               </div>
-              <h1>{workspace?.title ?? "Your workspace"}</h1>
+              <h1>
+                {model.session.role === "tutor" ? (
+                  <button
+                    className="workspace-title"
+                    aria-label="Rename workspace"
+                    onClick={() => setRenameTitle(workspace?.title ?? "")}
+                  >
+                    {workspace?.title ?? "Your workspace"}
+                    <Pencil size={14} />
+                  </button>
+                ) : (
+                  (workspace?.title ?? "Your workspace")
+                )}
+              </h1>
             </div>
             <div className="heading-actions">
               <button
@@ -814,7 +843,7 @@ export default function App() {
               stays yours.
             </span>
             <span>
-              {workspace && (
+              {workspace?.expiresAt ? (
                 <>
                   Expires{" "}
                   {new Date(workspace.expiresAt).toLocaleDateString(undefined, {
@@ -824,78 +853,96 @@ export default function App() {
                   })}{" "}
                   after inactivity
                 </>
+              ) : (
+                "Stored locally until you delete it"
               )}
             </span>
           </footer>
         </main>
       </div>
-      {showReload && (
-        <div className="modal-backdrop">
-          <section
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reload-title"
+      {renameTitle !== null && (
+        <Modal title="Name this workspace" onClose={() => setRenameTitle(null)}>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void model.renameWorkspace(renameTitle).then((saved) => {
+                if (saved) setRenameTitle(null);
+              });
+            }}
           >
-            <h2 id="reload-title">Reload the saved draft?</h2>
-            <p>
-              This replaces your unsaved text with the latest server version.
-              Download your draft first if you want to keep it.
-            </p>
+            <label className="form-label">
+              Workspace name
+              <input
+                value={renameTitle}
+                onChange={(event) => setRenameTitle(event.target.value)}
+                maxLength={120}
+                autoFocus
+              />
+            </label>
             <div className="modal-actions">
               <button
+                type="button"
                 className="secondary"
-                onClick={() => setShowReload(false)}
-              >
-                Keep editing
-              </button>
-              <button
-                className="primary"
-                onClick={() => {
-                  setShowReload(false);
-                  void model.reloadDraft();
-                }}
-              >
-                Reload saved draft
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-      {showDirect && (
-        <div className="modal-backdrop">
-          <section
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="direct-title"
-          >
-            <h2 id="direct-title">Edit the student copy directly?</h2>
-            <p>
-              A snapshot of the student's current work will be preserved before
-              each of your saves. Your private mentor copy is the usual place
-              for experiments.
-            </p>
-            <div className="modal-actions">
-              <button
-                className="secondary"
-                onClick={() => setShowDirect(false)}
+                onClick={() => setRenameTitle(null)}
               >
                 Cancel
               </button>
-              <button
-                className="primary"
-                onClick={() => {
-                  setShowDirect(false);
-                  setDirectUnlocked(true);
-                  model.confirmDirectEdit();
-                }}
-              >
-                Preserve & unlock
-              </button>
+              <button className="primary">Save name</button>
             </div>
-          </section>
-        </div>
+          </form>
+        </Modal>
+      )}
+      {showReload && (
+        <Modal
+          title="Reload the saved draft?"
+          onClose={() => setShowReload(false)}
+        >
+          <p className="dialog-description">
+            This replaces your unsaved text with the latest server version.
+            Download your draft first if you want to keep it.
+          </p>
+          <div className="modal-actions">
+            <button className="secondary" onClick={() => setShowReload(false)}>
+              Keep editing
+            </button>
+            <button
+              className="primary"
+              onClick={() => {
+                setShowReload(false);
+                void model.reloadDraft();
+              }}
+            >
+              Reload saved draft
+            </button>
+          </div>
+        </Modal>
+      )}
+      {showDirect && (
+        <Modal
+          title="Edit the student copy directly?"
+          onClose={() => setShowDirect(false)}
+        >
+          <p className="dialog-description">
+            A snapshot of the student's current work will be preserved before
+            each of your saves. Your private mentor copy is the usual place for
+            experiments.
+          </p>
+          <div className="modal-actions">
+            <button className="secondary" onClick={() => setShowDirect(false)}>
+              Cancel
+            </button>
+            <button
+              className="primary"
+              onClick={() => {
+                setShowDirect(false);
+                setDirectUnlocked(true);
+                model.confirmDirectEdit();
+              }}
+            >
+              Preserve & unlock
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );
