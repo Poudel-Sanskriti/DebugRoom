@@ -26,7 +26,10 @@
     "test:sandbox": "DEBUGROOM_TEST_DOCKER=1 python3 -m unittest discover -s runner/agent -p 'test_*.py'",
     "test:cpp": "DEBUGROOM_TEST_DOCKER=1 python3 -m unittest discover -s runner/cpp -p 'test_*.py'",
     "db:migrate": "node --import tsx scripts/migrate.ts",
-    "local:access": "node --import tsx scripts/local-access.ts"
+    "local:access": "node --import tsx scripts/local-access.ts",
+    "setup:local": "node --import tsx scripts/setup-local.ts",
+    "test:e2e": "playwright test",
+    "benchmark": "node --import tsx scripts/benchmark.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

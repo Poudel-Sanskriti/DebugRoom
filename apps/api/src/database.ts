@@ -144,6 +144,13 @@ export async function migrate(db: Database) {
             );
           },
         },
+        "0004_restore_auto_entrypoint": {
+          up: async (connection: Database) => {
+            await sql`UPDATE branches SET draft=jsonb_set(draft,'{entryPoint}','null'::jsonb),revision=revision+1,updated_at=now() WHERE draft->>'entryPoint'=''`.execute(
+              connection,
+            );
+          },
+        },
       }),
     },
   });

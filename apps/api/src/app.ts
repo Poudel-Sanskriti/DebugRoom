@@ -59,6 +59,7 @@ export async function buildApp(
   config: AppConfig,
 ) {
   const app = Fastify({
+    ajv: { customOptions: { coerceTypes: false } },
     bodyLimit:
       limits.sourceBytes + limits.inputBytes + limits.problemBytes + 16384,
     logger: config.logger

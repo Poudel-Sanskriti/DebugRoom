@@ -859,6 +859,9 @@
               }
             }
           },
+          "unwinding": {
+            "type": "boolean"
+          },
           "globals": {
             "maxProperties": 256,
             "type": "object",

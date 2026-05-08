@@ -106,6 +106,13 @@ class TraceTests(unittest.TestCase):
         self.assertTrue(any(e['kind'] == 'exception' for e in steps(records)))
         self.assertEqual(records[-1]['outcome'], 'completed')
 
+    def test_exception_unwinding_is_not_a_none_return(self):
+        records=run('def bad():\n    try:\n        return 1 / 0\n    finally:\n        cleanup = True\n')
+        exit_event=steps(records,'bad')[-1]
+        self.assertTrue(exit_event['unwinding'])
+        self.assertNotIn('returnValue',exit_event)
+        self.assertEqual(records[-1]['outcome'],'runtime_error')
+
     def test_original_error_and_line(self):
         records = run('def bad():\n    return 1 / 0\n')
         self.assertEqual(records[-1]['outcome'], 'runtime_error')

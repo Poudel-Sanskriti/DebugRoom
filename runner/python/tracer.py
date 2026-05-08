@@ -8,6 +8,7 @@ from __future__ import annotations
 import ast
 import builtins
 import copy
+import dis
 import inspect
 import io
 import json
@@ -142,7 +143,11 @@ class Collector:
         record["globals"] = {name: self.snapshots.value(value) for name, value in globals_[:256]}
         record["globalsTruncated"] = len(globals_) > 256
         if event == "return":
-            record["returnValue"] = self.snapshots.value(arg)
+            opcode = dis.opname[frame.f_code.co_code[frame.f_lasti]]
+            if opcode not in ("RETURN_VALUE", "RETURN_CONST", "YIELD_VALUE", "INSTRUMENTED_RETURN_VALUE"):
+                record["unwinding"] = True
+            else:
+                record["returnValue"] = self.snapshots.value(arg)
         if event == "exception":
             record["exception"] = {"type": type(arg[1]).__name__[:200], "message": str(arg[1])[:16384], "line": frame.f_lineno}
         for state in frames:

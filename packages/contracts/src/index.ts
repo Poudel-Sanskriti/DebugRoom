@@ -108,6 +108,7 @@ export const EventSchema = Type.Object(
     objects: Type.Record(Type.String(), ObjectSchema, { maxProperties: 256 }),
     returnValue: Type.Optional(ValueSchema),
     exception: Type.Optional(ErrorSchema),
+    unwinding: Type.Optional(Type.Boolean()),
     globals: Type.Optional(
       Type.Record(Type.String(), ValueSchema, { maxProperties: 256 }),
     ),

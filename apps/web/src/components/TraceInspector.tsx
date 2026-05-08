@@ -214,7 +214,9 @@ export default function TraceInspector({
                     {event.kind === "line"
                       ? "ABOUT TO EXECUTE"
                       : event.kind === "return"
-                        ? "RETURNING FROM"
+                        ? event.unwinding
+                          ? "UNWINDING AFTER EXCEPTION"
+                          : "RETURNING FROM"
                         : event.kind === "call"
                           ? "ENTERING FUNCTION"
                           : "EXCEPTION OBSERVED"}

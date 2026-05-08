@@ -1,0 +1,80 @@
+{
+  "checkedAt": "2026-09-14T03:53:08.802Z",
+  "sourceCommit": "be99a267ea296f8c8eff112bd5d2952015fc920f",
+  "status": "passed locally",
+  "tests": {
+    "web": 9,
+    "postgresApi": 28,
+    "python": 17,
+    "sharedContract": 1,
+    "gvisorSandbox": 12,
+    "cppDocker": 6,
+    "total": 73
+  },
+  "checks": [
+    "Production build and TypeScript checks",
+    "Prettier formatting",
+    "Vite refuses credential and Git metadata files with HTTP 403",
+    "OpenTofu validation and rendered startup-script shell syntax"
+  ],
+  "liveAcceptance": {
+    "checkedAt": "2026-09-14T03:49:54.611Z",
+    "checks": [
+      "single-use invitation and separate student session",
+      "real Python execution, immutable edit-during-run snapshot, pinned runtime policy",
+      "private mentor trace denied, selective sharing, filtered export with real output",
+      "version-linked comments, regression input, confirmed direct edit with preserved version",
+      "revocation invalidates an existing student session",
+      "real C++ compilation, recursive debugger trace, and stdin/output through the same API"
+    ],
+    "cppEvents": 19
+  },
+  "backupRestore": {
+    "checkedAt": "2026-09-14T03:49:56.678Z",
+    "restoredArtifacts": 7,
+    "counts": {
+      "workspaces": "4",
+      "snapshots": "9",
+      "runs": "7"
+    }
+  },
+  "browser": {
+    "url": "http://127.0.0.1:5173/",
+    "checks": [
+      "Real Python binary search returned 5 in 15 observations",
+      "Saved automatic entry point survived reload and executed successfully",
+      "Real C++ recursive factorial printed 24 in 19 observations",
+      "Previous/Next, seeking, automatic playback, source highlighting, and pinning",
+      "Editing input preserved the earlier immutable run snapshot",
+      "Reload recovered persisted history",
+      "Comparison displayed each run source, input, and result",
+      "Investigation and collaboration controls rendered",
+      "Desktop and narrow stacked layout; temporary viewport reset"
+    ],
+    "finalWorkspace": "Explore binary search",
+    "finalRunPrefix": "28a69087",
+    "finalStep": 8
+  },
+  "runtimes": {
+    "builtAt": "2026-09-14T03:47:30.255Z",
+    "images": {
+      "python": "sha256:55163a7e5b158f025d59e588a3bc5a00861d8465b5d45c1d5c69e1541645e6e8",
+      "cpp": "sha256:ea0e05943d419af2a0fe9d742bbd2f3d49ec2aee1c66ca17edd44ffd85156b10"
+    },
+    "pythonRuntime": "runsc",
+    "cppRuntime": "runc"
+  },
+  "benchmark": {
+    "samples": 78,
+    "failures": 0,
+    "evidence": "local-benchmark.json"
+  },
+  "externalValidationPending": [
+    "GitHub OAuth using a registered application",
+    "Approved AWS deployment and hosted checks",
+    "Coordinated remote database/artifact restoration and measured cloud costs",
+    "Remote GitHub Actions execution",
+    "Independent code review and real learner/tutor trial"
+  ],
+  "repositoryPushed": false
+}

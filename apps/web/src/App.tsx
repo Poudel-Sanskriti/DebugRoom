@@ -102,6 +102,20 @@ export default function App() {
         .then((data) => {
           setFunctions(data.functions);
           setDiscoveryError(data.error?.message ?? "");
+          const canEdit = !(
+            workspace?.invitationActive &&
+            model.session?.role === "tutor" &&
+            branch?.kind === "student" &&
+            !directUnlocked
+          );
+          if (
+            canEdit &&
+            !data.error &&
+            draft.entryPoint &&
+            draft.entryPoint !== "__module__" &&
+            !data.functions.some((fn) => fn.name === draft.entryPoint)
+          )
+            model.edit({ entryPoint: null });
         })
         .catch((error) => {
           if (error.name !== "AbortError") setDiscoveryError(error.message);
@@ -111,7 +125,16 @@ export default function App() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [draft?.code, draft?.language]);
+  }, [
+    draft?.code,
+    draft?.language,
+    draft?.entryPoint,
+    branch?.id,
+    branch?.kind,
+    workspace?.invitationActive,
+    model.session?.role,
+    directUnlocked,
+  ]);
   useEffect(() => {
     if (!workspace) return;
     const timer = setInterval(

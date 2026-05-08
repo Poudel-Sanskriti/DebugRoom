@@ -95,6 +95,7 @@ async function createRun() {
     },
   });
   expect(run.statusCode).toBe(200);
+  expect(run.json().snapshot.entryPoint).toBe(draft.entryPoint);
   return run.json();
 }
 

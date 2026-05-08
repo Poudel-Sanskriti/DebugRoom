@@ -12,3 +12,7 @@ mounts:
     writable: false
 network:
   address: false
+docker:
+  runtimes:
+    runsc:
+      path: /usr/local/bin/runsc
