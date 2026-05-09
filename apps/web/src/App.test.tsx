@@ -140,6 +140,7 @@ describe("real-run workspace UI", () => {
   });
   it("submits the source/input, seeks the real fixture, and steps without executing again", async () => {
     const user = await loadAndRun();
+    await user.click(screen.getByRole("tab", { name: "Variables" }));
     const loopIndex = fixture.result.steps.findIndex(
       (e) =>
         e.kind === "line" &&

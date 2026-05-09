@@ -40,6 +40,7 @@ export async function api<T>(
 }
 export type RuntimeConfig = {
   localAuth: boolean;
+  localAutoAuth?: boolean;
   githubAuth: boolean;
   executionMode: string;
   languages: string[];

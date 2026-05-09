@@ -100,6 +100,106 @@ async function createRun() {
 }
 
 describe("HTTP application boundary", () => {
+  it("opens local loopback sessions without a key while rejecting remote and cross-site access", async () => {
+    const automatic = await buildApp(
+      new Store(db),
+      new LocalArtifacts(directory),
+      {
+        root,
+        origin: "http://127.0.0.1:5173",
+        localAuth: true,
+        localAutoAuth: true,
+        runnerToken: workerSecret,
+        executionMode: "docker",
+      },
+    );
+    const request = {
+      method: "POST" as const,
+      url: "/api/auth/local",
+      headers: { host: "127.0.0.1:5173", origin: "http://127.0.0.1:5173" },
+      payload: {},
+      remoteAddress: "127.0.0.1",
+    };
+    try {
+      const login = await automatic.inject(request);
+      expect(login.statusCode).toBe(200);
+      expect(login.cookies[0]?.httpOnly).toBe(true);
+      expect(
+        (
+          await automatic.inject({
+            ...request,
+            headers: {
+              ...request.headers,
+              cookie: "debugroom_session=revoked-session",
+            },
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect(
+        (await automatic.inject({ ...request, remoteAddress: "192.168.1.5" }))
+          .statusCode,
+      ).toBe(403);
+      expect(
+        (
+          await automatic.inject({
+            ...request,
+            headers: { ...request.headers, origin: "https://example.com" },
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect(
+        (
+          await automatic.inject({
+            ...request,
+            headers: { ...request.headers, host: "example.com" },
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect(
+        (
+          await automatic.inject({
+            ...request,
+            headers: { host: request.headers.host },
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect((await app.inject(request)).statusCode).toBe(403);
+    } finally {
+      await automatic.close();
+    }
+  });
+  it("never enables automatic entry for hosted or proxied sessions", async () => {
+    for (const config of [
+      { localAuth: false },
+      { localAuth: true, localProxyAuth: true },
+      { localAuth: true, trustProxy: ["127.0.0.1"] },
+    ]) {
+      const protectedApp = await buildApp(
+        new Store(db),
+        new LocalArtifacts(directory),
+        {
+          root,
+          origin: "http://127.0.0.1:5173",
+          runnerToken: workerSecret,
+          executionMode: "docker",
+          localAutoAuth: true,
+          ...config,
+        },
+      );
+      try {
+        const response = await protectedApp.inject({
+          method: "POST",
+          url: "/api/auth/local",
+          headers: { host: "127.0.0.1:5173", origin: "http://127.0.0.1:5173" },
+          payload: {},
+          remoteAddress: "127.0.0.1",
+        });
+        expect(response.statusCode).toBe(config.localAuth ? 403 : 404);
+      } finally {
+        await protectedApp.close();
+      }
+    }
+  });
   it("requires a session and rejects cross-origin and rebinding requests", async () => {
     expect(
       (

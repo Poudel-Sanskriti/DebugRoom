@@ -38,10 +38,10 @@ npm run setup:local
 npm run dev
 ```
 
-Open the Vite URL, normally **http://127.0.0.1:5173/**. In another terminal, run
-`npm run local:access` for your private local sign-in link. The key is stored in
-`.data/local-login-token`; do not share or commit it. Local access is a development
-capability and is disabled in hosted mode.
+Open **http://127.0.0.1:5173/**. The workspace opens automatically on your own
+machine: no password, access key, or sign-in step. Hosted and explicitly proxied
+setups retain their authentication. `npm run local:access` remains available for
+the protected proxy workflow; its key must not be shared or committed.
 
 The development command starts the API and execution worker. It starts a
 project-local PostgreSQL cluster when no `DATABASE_URL` is supplied. Data is
@@ -58,6 +58,14 @@ the new image IDs.
 1. Load **Binary search**, then click **Run code**.
 2. Move through the trace and inspect `low`, `high`, and `mid`. A Python line event
    describes state before that line executes.
+   The Execution Studio moves index markers across the array and shades cells
+   outside `low…high`. Choose which integer variables to show as index markers.
+   Try **Watch a bubble sort** for animated swaps or **Recursive factorial** for
+   a growing call journey. Replay starts again from the end; system reduced-motion
+   preferences disable movement while preserving every captured value.
+   Switch between **Visualize**, **Variables**, and **Output** without losing your
+   step. Playback controls stay above the view, and the panel has no nested
+   vertical scrollbar.
 3. Edit the working input. The **Run snapshot** tab still shows the source and
    input that produced the earlier result.
 4. Open **Feedback** to create a student invitation, use the private mentor copy,

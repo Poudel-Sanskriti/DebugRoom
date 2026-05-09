@@ -91,6 +91,14 @@ export function useWorkspace() {
         if (!(error instanceof ClientError && error.status === 401))
           throw error;
       }
+      if (
+        !identity &&
+        configuration.localAutoAuth &&
+        window.location.pathname !== "/join"
+      ) {
+        await api("/api/auth/local", { method: "POST", body: {} });
+        identity = await api<Session>("/api/session");
+      }
       if (!identity)
         return { config: configuration, session: null, workspaces: [] };
       setCsrf(identity.csrf);

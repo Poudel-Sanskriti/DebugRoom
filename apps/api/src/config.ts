@@ -86,6 +86,14 @@ export async function loadConfig(): Promise<
     root,
     origin,
     localAuth: !production,
+    localAutoAuth:
+      !production &&
+      ["127.0.0.1", "::1", "[::1]"].includes(new URL(origin).hostname) &&
+      ["127.0.0.1", "::1"].includes(
+        process.env.DEBUGROOM_HOST ?? "127.0.0.1",
+      ) &&
+      process.env.DEBUGROOM_LOCAL_PROXY_AUTH !== "1" &&
+      !process.env.DEBUGROOM_TRUST_PROXY,
     localLoginToken,
     localProxyAuth:
       !production && process.env.DEBUGROOM_LOCAL_PROXY_AUTH === "1",

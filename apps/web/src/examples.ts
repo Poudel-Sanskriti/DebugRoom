@@ -2,6 +2,18 @@ import type { Draft } from "@debugroom/contracts";
 export type Example = { id: string; title: string; draft: Draft };
 export const examples: Example[] = [
   {
+    id: "bubble-sort",
+    title: "Watch a bubble sort",
+    draft: {
+      language: "python",
+      entryPoint: "bubble_sort",
+      problem:
+        "Sort the list in ascending order. Follow j as neighboring values swap places. Each line shows the state before it executes.",
+      input: '{\n  "args": [[5, 2, 4, 1, 3]],\n  "kwargs": {}\n}',
+      code: "def bubble_sort(nums):\n    for end in range(len(nums) - 1, 0, -1):\n        for j in range(end):\n            if nums[j] > nums[j + 1]:\n                nums[j], nums[j + 1] = nums[j + 1], nums[j]\n    return nums\n",
+    },
+  },
+  {
     id: "binary-search",
     title: "Binary search",
     draft: {

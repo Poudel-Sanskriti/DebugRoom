@@ -17,6 +17,7 @@ import {
 import type { Run, TraceFrame, TraceValue } from "@debugroom/contracts";
 import ObjectGraph from "./ObjectGraph";
 import ValueView, { valueText, valueType } from "./ValueView";
+import ExecutionStage from "./ExecutionStage";
 
 const outcomeNames: Record<string, string> = {
   completed: "Completed",
@@ -50,6 +51,7 @@ export default function TraceInspector({
   onViewSource: (line?: number) => void;
 }) {
   const [playing, setPlaying] = useState(false),
+    [view, setView] = useState<"visual" | "variables" | "output">("visual"),
     [speed, setSpeed] = useState(700),
     [pins, setPins] = useState<PinEntry[]>([]),
     [selectedFrame, setSelectedFrame] = useState<string | null>(null),
@@ -127,6 +129,42 @@ export default function TraceInspector({
                 : outcomeName(run.outcome)}
           </span>
         )}
+      </div>
+      <div
+        className="inspector-tabs"
+        role="tablist"
+        aria-label="Execution views"
+      >
+        {(
+          [
+            ["visual", "Visualize"],
+            ["variables", "Variables"],
+            ["output", "Output"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            role="tab"
+            id={`execution-tab-${id}`}
+            aria-controls={`execution-panel-${id}`}
+            aria-selected={view === id}
+            tabIndex={view === id ? 0 : -1}
+            onClick={() => setView(id)}
+            onKeyDown={(e) => {
+              const tabs = ["visual", "variables", "output"] as const;
+              const offset =
+                e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+              if (offset) {
+                e.preventDefault();
+                const next = tabs[(tabs.indexOf(view) + offset + 3) % 3]!;
+                setView(next);
+                document.getElementById(`execution-tab-${next}`)?.focus();
+              }
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
       {!run ? (
         <div className="inspector-empty">
@@ -207,237 +245,273 @@ export default function TraceInspector({
           )}
           {event && (
             <>
-              <div className="line-card">
-                <span className="line-symbol">↳</span>
-                <div>
-                  <span className="muted-label">
-                    {event.kind === "line"
-                      ? "ABOUT TO EXECUTE"
-                      : event.kind === "return"
-                        ? event.unwinding
-                          ? "UNWINDING AFTER EXCEPTION"
-                          : "RETURNING FROM"
-                        : event.kind === "call"
-                          ? "ENTERING FUNCTION"
-                          : "EXCEPTION OBSERVED"}
-                  </span>
-                  <strong data-testid="current-line">
-                    Line {event.line}{" "}
-                    <span>
-                      in{" "}
-                      {
-                        event.frames.find(
-                          (candidate) => candidate.id === event.frameId,
-                        )?.function
-                      }
-                      ()
-                    </span>
-                  </strong>
-                </div>
-                <span className="line-event">{event.kind}</span>
+              <div
+                role="tabpanel"
+                id="execution-panel-visual"
+                aria-labelledby="execution-tab-visual"
+                hidden={view !== "visual"}
+              >
+                <ExecutionStage
+                  key={run.id}
+                  event={event}
+                  frame={frame}
+                  previous={previousFrame}
+                  code={run.snapshot?.code ?? ""}
+                  speed={speed}
+                  index={index}
+                  total={steps.length}
+                />
               </div>
-              <details className="stack-panel" open={event.frames.length > 1}>
-                <summary>
-                  <Layers size={14} /> Call stack{" "}
-                  <span>
-                    {event.frames.length}{" "}
-                    {event.frames.length === 1 ? "frame" : "frames"}
-                  </span>
-                </summary>
-                <div className="stack-list">
-                  {[...event.frames].reverse().map((f) => (
-                    <button
-                      className={f.id === frame?.id ? "selected" : ""}
-                      key={f.id}
-                      onClick={() => setSelectedFrame(f.id)}
-                    >
-                      <span>{f.function}()</span>
-                      <small>
-                        {f.id} · line {f.line}
-                      </small>
-                      {f.id === event.frameId && <i>active</i>}
-                    </button>
-                  ))}
+              <div
+                role="tabpanel"
+                id="execution-panel-variables"
+                aria-labelledby="execution-tab-variables"
+                hidden={view !== "variables"}
+              >
+                <div className="line-card">
+                  <span className="line-symbol">↳</span>
+                  <div>
+                    <span className="muted-label">
+                      {event.kind === "line"
+                        ? "ABOUT TO EXECUTE"
+                        : event.kind === "return"
+                          ? event.unwinding
+                            ? "UNWINDING AFTER EXCEPTION"
+                            : "RETURNING FROM"
+                          : event.kind === "call"
+                            ? "ENTERING FUNCTION"
+                            : "EXCEPTION OBSERVED"}
+                    </span>
+                    <strong data-testid="current-line">
+                      Line {event.line}{" "}
+                      <span>
+                        in{" "}
+                        {
+                          event.frames.find(
+                            (candidate) => candidate.id === event.frameId,
+                          )?.function
+                        }
+                        ()
+                      </span>
+                    </strong>
+                  </div>
+                  <span className="line-event">{event.kind}</span>
                 </div>
-              </details>
-              {event.globals && Object.keys(event.globals).length > 0 && (
-                <details className="global-scope">
+                <details className="stack-panel" open={event.frames.length > 1}>
                   <summary>
-                    Global scope{" "}
+                    <Layers size={14} /> Call stack{" "}
                     <span>
-                      {Object.keys(event.globals).length} names
-                      {event.globalsTruncated ? " · truncated" : ""}
+                      {event.frames.length}{" "}
+                      {event.frames.length === 1 ? "frame" : "frames"}
                     </span>
                   </summary>
-                  <div>
-                    {Object.entries(event.globals).map(([name, value]) => (
-                      <div key={name}>
-                        <code>{name}</code>
-                        <ValueView value={value} objects={objects} />
-                      </div>
+                  <div className="stack-list">
+                    {[...event.frames].reverse().map((f) => (
+                      <button
+                        className={f.id === frame?.id ? "selected" : ""}
+                        key={f.id}
+                        onClick={() => setSelectedFrame(f.id)}
+                      >
+                        <span>{f.function}()</span>
+                        <small>
+                          {f.id} · line {f.line}
+                        </small>
+                        {f.id === event.frameId && <i>active</i>}
+                      </button>
                     ))}
                   </div>
                 </details>
-              )}
-              {pins.length > 0 && (
-                <div className="pinned-panel">
-                  <h3>
-                    <Pin size={13} /> Pinned variables
-                  </h3>
-                  {pins.map((pin) => {
-                    const sourceFrame = event.frames.find(
-                        (f) => f.id === pin.frameId,
-                      ),
-                      value = sourceFrame?.locals[pin.name];
+                {event.globals && Object.keys(event.globals).length > 0 && (
+                  <details className="global-scope">
+                    <summary>
+                      Global scope{" "}
+                      <span>
+                        {Object.keys(event.globals).length} names
+                        {event.globalsTruncated ? " · truncated" : ""}
+                      </span>
+                    </summary>
+                    <div>
+                      {Object.entries(event.globals).map(([name, value]) => (
+                        <div key={name}>
+                          <code>{name}</code>
+                          <ValueView value={value} objects={objects} />
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+                {pins.length > 0 && (
+                  <div className="pinned-panel">
+                    <h3>
+                      <Pin size={13} /> Pinned variables
+                    </h3>
+                    {pins.map((pin) => {
+                      const sourceFrame = event.frames.find(
+                          (f) => f.id === pin.frameId,
+                        ),
+                        value = sourceFrame?.locals[pin.name];
+                      return (
+                        <div
+                          className="pinned-variable"
+                          key={pin.frameId + pin.name}
+                        >
+                          <code>
+                            {pin.function} · {pin.frameId}.{pin.name}
+                          </code>
+                          {value ? (
+                            <ValueView value={value} objects={objects} />
+                          ) : (
+                            <span className="out-of-scope">out of scope</span>
+                          )}
+                          <button
+                            className="icon-button"
+                            title={`Unpin ${pin.name}`}
+                            aria-label={`Unpin ${pin.name}`}
+                            onClick={() =>
+                              setPins((previous) =>
+                                previous.filter((p) => p !== pin),
+                              )
+                            }
+                          >
+                            <PinOff size={13} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {frame && (
+                  <ObjectGraph locals={frame.locals} objects={objects} />
+                )}
+                <div className="variables-heading">
+                  <h3>Local variables</h3>
+                  <span>
+                    {Object.keys(frame?.locals ?? {}).length} visible
+                    {frame?.truncated ? " · truncated" : ""}
+                  </span>
+                </div>
+                <div className="variable-table">
+                  <div className="table-header">
+                    <span>NAME</span>
+                    <span>VALUE</span>
+                    <span>TYPE</span>
+                    <span />
+                  </div>
+                  {Object.entries(frame?.locals ?? {}).map(([name, value]) => {
+                    const change = frame?.changes[name],
+                      pinned = pins.some(
+                        (p) => p.frameId === frame!.id && p.name === name,
+                      );
                     return (
                       <div
-                        className="pinned-variable"
-                        key={pin.frameId + pin.name}
+                        className={`variable-row ${change ? "changed" : ""}`}
+                        key={name}
                       >
-                        <code>
-                          {pin.function} · {pin.frameId}.{pin.name}
-                        </code>
-                        {value ? (
+                        <code>{name}</code>
+                        <div>
                           <ValueView value={value} objects={objects} />
-                        ) : (
-                          <span className="out-of-scope">out of scope</span>
-                        )}
+                          {change && (
+                            <div
+                              className="value-transition"
+                              title={`${beforeText(name)} → ${valueText(value, objects)}`}
+                            >
+                              {beforeText(name)} <span>→</span>{" "}
+                              {valueText(value, objects).slice(0, 100)}
+                            </div>
+                          )}
+                        </div>
+                        <span className="type-label">
+                          {valueType(value, objects)}
+                        </span>
                         <button
-                          className="icon-button"
-                          title={`Unpin ${pin.name}`}
-                          aria-label={`Unpin ${pin.name}`}
-                          onClick={() =>
-                            setPins((previous) =>
-                              previous.filter((p) => p !== pin),
-                            )
-                          }
+                          className={`icon-button ${pinned ? "is-pinned" : ""}`}
+                          title={`${pinned ? "Unpin" : "Pin"} ${name}`}
+                          aria-label={`${pinned ? "Unpin" : "Pin"} ${name}`}
+                          onClick={() => togglePin(frame!, name)}
                         >
-                          <PinOff size={13} />
+                          <Pin size={13} />
                         </button>
                       </div>
                     );
                   })}
-                </div>
-              )}
-              {frame && <ObjectGraph locals={frame.locals} objects={objects} />}
-              <div className="variables-heading">
-                <h3>Local variables</h3>
-                <span>
-                  {Object.keys(frame?.locals ?? {}).length} visible
-                  {frame?.truncated ? " · truncated" : ""}
-                </span>
-              </div>
-              <div className="variable-table">
-                <div className="table-header">
-                  <span>NAME</span>
-                  <span>VALUE</span>
-                  <span>TYPE</span>
-                  <span />
-                </div>
-                {Object.entries(frame?.locals ?? {}).map(([name, value]) => {
-                  const change = frame?.changes[name],
-                    pinned = pins.some(
-                      (p) => p.frameId === frame!.id && p.name === name,
-                    );
-                  return (
-                    <div
-                      className={`variable-row ${change ? "changed" : ""}`}
-                      key={name}
-                    >
-                      <code>{name}</code>
-                      <div>
-                        <ValueView value={value} objects={objects} />
-                        {change && (
-                          <div
-                            className="value-transition"
-                            title={`${beforeText(name)} → ${valueText(value, objects)}`}
-                          >
-                            {beforeText(name)} <span>→</span>{" "}
-                            {valueText(value, objects).slice(0, 100)}
-                          </div>
-                        )}
+                  {!Object.keys(frame?.locals ?? {}).length && (
+                    <p className="no-locals">
+                      No local variables at this step.
+                    </p>
+                  )}
+                  {Object.entries(frame?.changes ?? {})
+                    .filter(([, change]) => change.after === null)
+                    .map(([name, change]) => (
+                      <div className="removed-variable" key={name}>
+                        <code>{name}</code>{" "}
+                        {valueText(
+                          change.before ?? undefined,
+                          previousFrame?.objects ?? {},
+                        )}{" "}
+                        → removed
                       </div>
-                      <span className="type-label">
-                        {valueType(value, objects)}
-                      </span>
-                      <button
-                        className={`icon-button ${pinned ? "is-pinned" : ""}`}
-                        title={`${pinned ? "Unpin" : "Pin"} ${name}`}
-                        aria-label={`${pinned ? "Unpin" : "Pin"} ${name}`}
-                        onClick={() => togglePin(frame!, name)}
-                      >
-                        <Pin size={13} />
-                      </button>
-                    </div>
-                  );
-                })}
-                {!Object.keys(frame?.locals ?? {}).length && (
-                  <p className="no-locals">No local variables at this step.</p>
+                    ))}
+                </div>
+                {event.returnValue && (
+                  <div className="return-observation">
+                    <span>Return at this step</span>
+                    <ValueView value={event.returnValue} objects={objects} />
+                  </div>
                 )}
-                {Object.entries(frame?.changes ?? {})
-                  .filter(([, change]) => change.after === null)
-                  .map(([name, change]) => (
-                    <div className="removed-variable" key={name}>
-                      <code>{name}</code>{" "}
-                      {valueText(
-                        change.before ?? undefined,
-                        previousFrame?.objects ?? {},
-                      )}{" "}
-                      → removed
-                    </div>
-                  ))}
+                {event.exception && (
+                  <div className="exception-observation">
+                    {event.exception.type}: {event.exception.message}
+                    <small>
+                      An observed exception may be caught later in the program.
+                    </small>
+                  </div>
+                )}
               </div>
-              {event.returnValue && (
-                <div className="return-observation">
-                  <span>Return at this step</span>
-                  <ValueView value={event.returnValue} objects={objects} />
-                </div>
-              )}
-              {event.exception && (
-                <div className="exception-observation">
-                  {event.exception.type}: {event.exception.message}
-                  <small>
-                    An observed exception may be caught later in the program.
-                  </small>
-                </div>
-              )}
             </>
           )}
           {run.result && (
-            <details className="output-panel" open>
-              <summary>
-                <Terminal size={15} /> Output & result{" "}
-                {run.outcome === "completed" && <CheckCircle2 size={14} />}
-              </summary>
-              {run.result.returnValue && (
-                <div className="final-return">
-                  <span>
-                    {run.snapshot?.language === "cpp"
-                      ? "Exit code"
-                      : "Return value"}
-                  </span>
-                  <ValueView
-                    value={run.result.returnValue}
-                    objects={run.result.objects}
-                  />
+            <div
+              role="tabpanel"
+              id="execution-panel-output"
+              aria-labelledby="execution-tab-output"
+              hidden={view !== "output"}
+            >
+              <details className="output-panel" open>
+                <summary>
+                  <Terminal size={15} /> Output & result{" "}
+                  {run.outcome === "completed" && <CheckCircle2 size={14} />}
+                </summary>
+                {run.result.returnValue && (
+                  <div className="final-return">
+                    <span>
+                      {run.snapshot?.language === "cpp"
+                        ? "Exit code"
+                        : "Return value"}
+                    </span>
+                    <ValueView
+                      value={run.result.returnValue}
+                      objects={run.result.objects}
+                    />
+                  </div>
+                )}
+                <div className="output-stream">
+                  <span>stdout</span>
+                  <pre>{run.result.stdout || "No output printed."}</pre>
                 </div>
-              )}
-              <div className="output-stream">
-                <span>stdout</span>
-                <pre>{run.result.stdout || "No output printed."}</pre>
-              </div>
-              {run.result.stderr && (
-                <div className="output-stream stderr">
-                  <span>stderr</span>
-                  <pre>{run.result.stderr}</pre>
+                {run.result.stderr && (
+                  <div className="output-stream stderr">
+                    <span>stderr</span>
+                    <pre>{run.result.stderr}</pre>
+                  </div>
+                )}
+                <div className="result-meta">
+                  <Clock size={12} />{" "}
+                  {(run.result.durationMs / 1000).toFixed(3)}s ·{" "}
+                  {steps.length.toLocaleString()} steps ·{" "}
+                  {run.result.complete ? "complete trace" : "partial trace"}
                 </div>
-              )}
-              <div className="result-meta">
-                <Clock size={12} /> {(run.result.durationMs / 1000).toFixed(3)}s
-                · {steps.length.toLocaleString()} steps ·{" "}
-                {run.result.complete ? "complete trace" : "partial trace"}
-              </div>
-            </details>
+              </details>
+            </div>
           )}
         </>
       )}
@@ -490,10 +564,21 @@ export default function TraceInspector({
           </button>
           <button
             className="play-button"
-            aria-label={playing ? "Pause playback" : "Play playback"}
-            title={playing ? "Pause" : "Play"}
-            disabled={!event || index >= steps.length - 1}
-            onClick={() => setPlaying((value) => !value)}
+            aria-label={
+              playing
+                ? "Pause playback"
+                : index >= steps.length - 1
+                  ? "Replay execution"
+                  : "Play playback"
+            }
+            title={
+              playing ? "Pause" : index >= steps.length - 1 ? "Replay" : "Play"
+            }
+            disabled={!event || steps.length < 2}
+            onClick={() => {
+              if (!playing && index >= steps.length - 1) onIndex(0);
+              setPlaying((value) => !value);
+            }}
           >
             {playing ? <Pause size={16} /> : <Play size={16} />}
           </button>

@@ -244,7 +244,7 @@ export default function App() {
               </button>
             </div>
           )}
-          {model.config?.localAuth && (
+          {model.config?.localAuth && !model.config.localAutoAuth && (
             <form
               className="local-signin"
               onSubmit={(event) => {
@@ -308,18 +308,20 @@ export default function App() {
               <span>
                 {model.session.role === "tutor" ? "Tutor" : "Student"}
               </span>
-              <button
-                onClick={() =>
-                  void model.flush().then((ok) => {
-                    if (ok)
-                      return api("/api/auth/logout", { method: "POST" }).then(
-                        () => window.location.reload(),
-                      );
-                  })
-                }
-              >
-                Sign out
-              </button>
+              {!model.config?.localAutoAuth && (
+                <button
+                  onClick={() =>
+                    void model.flush().then((ok) => {
+                      if (ok)
+                        return api("/api/auth/logout", { method: "POST" }).then(
+                          () => window.location.reload(),
+                        );
+                    })
+                  }
+                >
+                  Sign out
+                </button>
+              )}
             </div>
           </details>
         </div>

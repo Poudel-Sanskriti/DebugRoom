@@ -27,6 +27,7 @@ export type AppConfig = {
   root: string;
   origin: string;
   localAuth: boolean;
+  localAutoAuth?: boolean;
   localLoginToken?: string;
   localProxyAuth?: boolean;
   trustProxy?: string[];
@@ -210,6 +211,7 @@ export async function buildApp(
   app.get("/health", async () => ({ status: "ok" }));
   app.get("/api/config", async () => ({
     localAuth: config.localAuth,
+    localAutoAuth: !!config.localAutoAuth && config.localAuth,
     githubAuth: !!config.github,
     executionMode: config.executionMode,
     languages: config.languages ?? ["python", "cpp"],
@@ -224,12 +226,16 @@ export async function buildApp(
       csrf: a.csrf,
     };
   });
-  app.post<{ Body: { token: string } }>(
+  app.post<{ Body: { token?: string } }>(
     "/api/auth/local",
     {
       schema: {
         body: Type.Object(
-          { token: Type.String({ minLength: 32, maxLength: 100 }) },
+          {
+            token: Type.Optional(
+              Type.String({ minLength: 32, maxLength: 100 }),
+            ),
+          },
           { additionalProperties: false },
         ),
       },
@@ -245,11 +251,29 @@ export async function buildApp(
           403,
           "Local sign-in is available only on this machine",
         );
+      const automatic =
+        config.localAutoAuth &&
+        !config.localProxyAuth &&
+        !config.trustProxy?.length &&
+        ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(
+          request.raw.socket.remoteAddress ?? "",
+        ) &&
+        request.body.token === undefined;
       if (
-        !config.localLoginToken ||
-        !equal(request.body.token, config.localLoginToken)
+        !automatic &&
+        (!config.localLoginToken ||
+          !request.body.token ||
+          !equal(request.body.token, config.localLoginToken))
       )
         throw new ApiError(403, "A valid local access key is required");
+      // Keep an invited student's existing authority when opening another tab.
+      if (automatic && request.actor) return { signedIn: true };
+      if (automatic && request.cookies[cookieName])
+        throw new ApiError(
+          403,
+          "This session has ended. Reopen your access or invitation link.",
+          "session_ended",
+        );
       const id = await store.tutor("local:owner", "Local tutor");
       const session = await store.createSession(id, null);
       reply.setCookie(cookieName, session.secret, cookieOptions);
