@@ -343,6 +343,24 @@
   font-size: 11px;
   margin-bottom: 15px;
 }
+.stage-view-picker {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.stage-view-picker button {
+  border: 1px solid #53617d;
+  border-radius: 20px;
+  padding: 4px 10px;
+  background: #222c46;
+  color: #a8b6d6;
+  font-size: 10px;
+}
+.stage-view-picker button[aria-pressed="true"] {
+  background: #39345d;
+  border-color: #9287dd;
+  color: #e0dbff;
+}
 .stage-options {
   margin-top: 4px;
 }

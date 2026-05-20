@@ -342,18 +342,21 @@ export function useWorkspace() {
   );
   const createWorkspace = useCallback(
     async (title = "Untitled workspace") => {
-      if (!(await flush())) return;
+      if (!(await flush())) return false;
       try {
         const w = await api<Workspace>("/api/workspaces", {
           method: "POST",
           body: { title },
         });
         setWorkspaces((previous) => [w, ...previous]);
+        runRequest.current++;
         setRun(null);
         setHistory([]);
         installBranch(w, w.branches[0]!);
+        return true;
       } catch (error) {
         setError(message(error));
+        return false;
       }
     },
     [flush, installBranch],
@@ -394,6 +397,7 @@ export function useWorkspace() {
       runRequest.current++;
       setRun(captured);
       setHistory((previous) => [captured, ...previous]);
+      return captured;
     } catch (error) {
       setError(message(error));
     } finally {

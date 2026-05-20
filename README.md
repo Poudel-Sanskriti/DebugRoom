@@ -55,6 +55,24 @@ the new image IDs.
 
 ## Try a complete workflow
 
+Open **Problem library** for 15 curated easy LeetCode problems. Search by title or
+filter by pattern, choose a sample or edge case, then use **Practice yourself**
+for a method stub or **Watch solution** for a real run with automatic playback.
+Each selection opens a separate saved workspace. The study guide keeps hints,
+expected results, and alternate inputs alongside your code. Expected results are
+reference examples, not an automatic grading service.
+
+The first set includes Two Sum, Contains Duplicate, Valid Anagram, Best Time to
+Buy and Sell Stock, Valid Palindrome, Move Zeroes, Binary Search, Valid Parentheses,
+Reverse Linked List, Merge Two Sorted Lists, Linked List Cycle, Invert Binary Tree,
+Majority Element, Single Number, and Climbing Stairs. Links lead to the official
+problem pages; the selection is a curated foundation, not a live popularity ranking.
+
+In Execution Studio, **Data structures** shows captured hash entries, sets, stacks,
+linked nodes, and tree references. Switch to **Sequence** for array markers.
+Linked-list and tree exercises include documented JSON adapters that build real
+nodes before calling the algorithm. Their helper code stays in practice mode.
+
 1. Load **Binary search**, then click **Run code**.
 2. Move through the trace and inspect `low`, `high`, and `mid`. A Python line event
    describes state before that line executes.

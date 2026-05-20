@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -44,12 +44,15 @@ export default function TraceInspector({
   index,
   onIndex,
   onViewSource,
+  autoPlayRunId,
 }: {
   run: Run | null;
   index: number;
   onIndex: (index: number) => void;
   onViewSource: (line?: number) => void;
+  autoPlayRunId?: string;
 }) {
+  const autoPlayed = useRef<string | undefined>(undefined);
   const [playing, setPlaying] = useState(false),
     [view, setView] = useState<"visual" | "variables" | "output">("visual"),
     [speed, setSpeed] = useState(700),
@@ -69,6 +72,19 @@ export default function TraceInspector({
     setPins([]);
     setSelectedFrame(null);
   }, [run?.id]);
+  useEffect(() => {
+    if (
+      run &&
+      run.id === autoPlayRunId &&
+      steps.length > 1 &&
+      autoPlayed.current !== run.id
+    ) {
+      autoPlayed.current = run.id;
+      setView("visual");
+      onIndex(0);
+      setPlaying(true);
+    }
+  }, [run?.id, autoPlayRunId, steps.length, onIndex]);
   useEffect(() => {
     if (!playing) return;
     if (index >= steps.length - 1) {

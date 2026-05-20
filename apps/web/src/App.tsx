@@ -31,6 +31,13 @@ import CollaborationPanel from "./components/CollaborationPanel";
 import RunComparison from "./components/RunComparison";
 import Modal from "./components/Modal";
 import { examples } from "./examples";
+import ProblemLibrary from "./components/ProblemLibrary";
+import ProblemStudyBar from "./components/ProblemStudyBar";
+import {
+  problemDraft,
+  problemForDraft,
+  type PracticeProblem,
+} from "./problems";
 import { api } from "./api";
 import type { Draft, Run } from "@debugroom/contracts";
 import "./styles.css";
@@ -52,6 +59,9 @@ export default function App() {
     [sourceView, setSourceView] = useState<"draft" | "run">("draft"),
     [bottomTab, setBottomTab] = useState<"input" | "problem">("input");
   const [showCollaboration, setShowCollaboration] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [watchRunId, setWatchRunId] = useState<string>();
+  const activeProblem = problemForDraft(draft);
   const [showComparison, setShowComparison] = useState(false);
   const [showHistory, setShowHistory] = useState(false),
     [functions, setFunctions] = useState<
@@ -181,6 +191,31 @@ export default function App() {
       model.edit(example.draft);
       setBottomTab("input");
     }
+  }
+  async function openProblem(
+    problem: PracticeProblem,
+    mode: "practice" | "solution",
+    caseIndex: number,
+  ) {
+    if (model.session?.role !== "tutor") return false;
+    if (
+      !(await model.createWorkspace(
+        `${problem.title} · ${mode === "practice" ? "Practice" : "Walkthrough"}`,
+      ))
+    )
+      return false;
+    model.edit(problemDraft(problem, mode, caseIndex));
+    setSourceView("draft");
+    setBottomTab("input");
+    setIndex(0);
+    setShowCollaboration(false);
+    setShowHistory(false);
+    if (!(await model.flush())) return false;
+    if (mode === "solution") {
+      const started = await model.startRun();
+      if (started) setWatchRunId(started.id);
+    }
+    return true;
   }
   function copyDraft() {
     if (!draft) return;
@@ -391,6 +426,13 @@ export default function App() {
             </div>
             <div className="heading-actions">
               <button
+                className="secondary library-open-button"
+                onClick={() => setShowLibrary(true)}
+              >
+                <BookOpen size={15} /> Problem library{" "}
+                <span className="count-pill">15</span>
+              </button>
+              <button
                 className={`secondary ${showCollaboration ? "selected" : ""}`}
                 onClick={() => setShowCollaboration((value) => !value)}
               >
@@ -548,6 +590,27 @@ export default function App() {
           {draft && displayed && (
             <div className="workspace">
               <section className="workbench" aria-label="Code and input">
+                {activeProblem && draft && (
+                  <ProblemStudyBar
+                    key={activeProblem.id}
+                    problem={activeProblem}
+                    draft={draft}
+                    disabled={
+                      !!(
+                        workspace?.invitationActive &&
+                        model.session.role === "tutor" &&
+                        branch?.kind === "student" &&
+                        !directUnlocked
+                      )
+                    }
+                    onInput={(input) => {
+                      model.edit({ input });
+                      setSourceView("draft");
+                      setBottomTab("input");
+                    }}
+                    onLibrary={() => setShowLibrary(true)}
+                  />
+                )}
                 <div className="workspace-toolbar">
                   <div
                     className="source-tabs"
@@ -842,6 +905,7 @@ export default function App() {
                 </div>
               </section>
               <TraceInspector
+                autoPlayRunId={watchRunId}
                 run={run}
                 index={index}
                 onIndex={setIndex}
@@ -916,6 +980,13 @@ export default function App() {
             </div>
           </form>
         </Modal>
+      )}
+      {showLibrary && (
+        <ProblemLibrary
+          onClose={() => setShowLibrary(false)}
+          onOpen={openProblem}
+          canCreate={model.session.role === "tutor"}
+        />
       )}
       {showReload && (
         <Modal

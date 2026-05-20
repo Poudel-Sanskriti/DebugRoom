@@ -8,6 +8,7 @@ import type {
 } from "@debugroom/contracts";
 import { valueText } from "./ValueView";
 import "./execution-stage.css";
+import StructureStage, { hasStructureView } from "./StructureStage";
 
 const defaultMarkers = new Set([
   "low",
@@ -18,6 +19,8 @@ const defaultMarkers = new Set([
   "i",
   "j",
   "index",
+  "read",
+  "write",
 ]);
 const palette = ["#a5b4fc", "#5eead4", "#fcd68b", "#f9a8d4"];
 function integer(value: TraceValue | undefined) {
@@ -215,6 +218,9 @@ export default function ExecutionStage({
   total: number;
 }) {
   const [selectedArray, setSelectedArray] = useState("");
+  const [preferredView, setPreferredView] = useState<"structures" | "sequence">(
+    "structures",
+  );
   const locals = frame?.locals ?? {};
   const arrays = Object.entries(locals).flatMap(([name, value]) => {
     const object = value.kind === "ref" ? event.objects[value.id] : undefined;
@@ -223,6 +229,9 @@ export default function ExecutionStage({
       : [];
   });
   const array = arrays.find(({ name }) => name === selectedArray) ?? arrays[0];
+  const structuresAvailable = hasStructureView(frame, event.objects);
+  const showStructures =
+    structuresAvailable && (preferredView === "structures" || !array);
   const scalars = Object.entries(locals).filter(
     ([, value]) => value.kind !== "ref",
   );
@@ -265,7 +274,23 @@ export default function ExecutionStage({
           </span>
           <code title={source}>{source || `Line ${event.line}`}</code>
         </div>
-        {arrays.length > 1 && (
+        {structuresAvailable && array && (
+          <div className="stage-view-picker" aria-label="Visualization type">
+            <button
+              aria-pressed={!showStructures}
+              onClick={() => setPreferredView("sequence")}
+            >
+              Sequence
+            </button>
+            <button
+              aria-pressed={showStructures}
+              onClick={() => setPreferredView("structures")}
+            >
+              Data structures
+            </button>
+          </div>
+        )}
+        {!showStructures && arrays.length > 1 && (
           <label className="stage-array-select">
             Sequence{" "}
             <select
@@ -278,7 +303,9 @@ export default function ExecutionStage({
             </select>
           </label>
         )}
-        {array ? (
+        {showStructures ? (
+          <StructureStage event={event} frame={frame} previous={previous} />
+        ) : array ? (
           <ArrayStage
             key={`${frame?.id}:${array.object.id}`}
             name={array.name}

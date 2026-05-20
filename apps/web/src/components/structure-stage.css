@@ -1,0 +1,229 @@
+.structure-stage {
+  min-width: 0;
+}
+.structure-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.structure-heading strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.structure-heading strong > span {
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: #ffffff0a;
+  color: #a8b6d6;
+  font-size: 9px;
+  font-weight: 500;
+}
+.structure-heading small,
+.structure-heading label {
+  color: #a8b6d6;
+  font-size: 10px;
+}
+.structure-heading select {
+  max-width: 155px;
+  margin-left: 5px;
+  border: 1px solid #53617d;
+  border-radius: 6px;
+  padding: 4px;
+  color: #dce3f8;
+  background: #222c46;
+  font-size: 10px;
+}
+.structure-picker {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+  padding-bottom: 2px;
+}
+.structure-picker button {
+  flex-shrink: 0;
+  border: 1px solid #46516e;
+  border-radius: 20px;
+  padding: 5px 10px;
+  color: #a8b6d6;
+  background: #202941;
+  font-size: 10px;
+}
+.structure-picker button[aria-pressed="true"] {
+  color: #e0dbff;
+  border-color: #9287dd;
+  background: #39345d;
+}
+.structure-graph-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #576289 transparent;
+  border-radius: 10px;
+  background: radial-gradient(circle, #ffffff0b 1px, transparent 1px) 0 0 / 18px
+    18px;
+}
+.structure-graph svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+.structure-node {
+  transition: transform var(--stage-duration, 480ms)
+    cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.structure-node rect {
+  fill: #2e3856;
+  stroke: #9b93e3;
+  stroke-width: 1.5;
+  transition:
+    fill var(--stage-duration, 480ms),
+    stroke var(--stage-duration, 480ms);
+}
+.structure-node.is-changed rect {
+  fill: #244e53;
+  stroke: #5eead4;
+}
+.structure-node text {
+  text-anchor: middle;
+  font-family: ui-monospace, monospace;
+}
+.structure-node-value {
+  fill: #f1f4ff;
+  font-size: 16px;
+  font-weight: 600;
+}
+.structure-node-badges {
+  fill: #c5bbff;
+  font-size: 10px;
+  font-weight: 600;
+}
+.structure-node.is-changed .structure-node-badges {
+  fill: #5eead4;
+}
+.structure-node-id {
+  fill: #a0acc8;
+  font-size: 9px;
+}
+.structure-node-null {
+  fill: #8f9aba;
+  font-size: 8px;
+}
+.structure-edge {
+  color: #969dc4;
+}
+.structure-edge path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  transition:
+    d var(--stage-duration, 480ms),
+    stroke var(--stage-duration, 480ms);
+}
+.structure-edge.is-changed {
+  color: #5eead4;
+}
+.structure-edge text {
+  fill: #b4c0dd;
+  font:
+    9px ui-monospace,
+    monospace;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: #192138;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  transition:
+    x var(--stage-duration, 480ms),
+    y var(--stage-duration, 480ms);
+}
+.structure-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(115px, 1fr));
+  gap: 7px;
+}
+.structure-card {
+  min-width: 0;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  position: relative;
+  border: 1px solid #485575;
+  border-radius: 9px;
+  padding: 10px;
+  background: #25304b;
+  font:
+    11px ui-monospace,
+    monospace;
+  transition:
+    background var(--stage-duration, 480ms),
+    border-color var(--stage-duration, 480ms);
+}
+.structure-card.is-changed {
+  background: #244e53;
+  border-color: #5eead4;
+}
+.structure-card-key {
+  color: #c6bcff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 45%;
+}
+.structure-card-arrow {
+  color: #8f9ab9;
+}
+.structure-card strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #edf3ff;
+}
+.structure-change-dot {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #5eead4;
+}
+.structure-cards.is-stack {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  max-width: 260px;
+  margin: auto;
+}
+.structure-cards.is-stack .structure-card {
+  padding: 7px 10px;
+}
+.structure-cards.is-stack .structure-card-key {
+  width: 35px;
+}
+.structure-note {
+  color: #a8b6d6;
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 9px 0 0;
+}
+.structure-empty {
+  padding: 22px 10px;
+  text-align: center;
+  color: #a8b6d6;
+  font-size: 12px;
+  border: 1px dashed #4a5573;
+  border-radius: 9px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .structure-stage *,
+  .structure-stage *::before,
+  .structure-stage *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
