@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
   const session = await (await page.request.get("/api/session")).json();
   const created = await page.request.post("/api/workspaces", {
     headers: { origin, "x-csrf-token": session.csrf },
-    data: { title: `Playwright verification ${Date.now()}` },
+    data: { title: "DebugRoom workspace" },
   });
   expect(created.ok()).toBeTruthy();
   workspaceId = (await created.json()).id;
@@ -129,6 +129,9 @@ test("fresh local entry needs no key and array playback can be replayed with red
   browser,
 }, testInfo) => {
   await page.setViewportSize({ width: 1366, height: 768 });
+  await page.getByRole("button", { name: "Rename workspace" }).click();
+  await page.getByLabel("Workspace name").fill("Bubble sort visualization");
+  await page.getByRole("button", { name: "Save name" }).click();
   const fresh = await browser.newContext();
   try {
     const freshPage = await fresh.newPage();
@@ -211,6 +214,9 @@ test("fresh local entry needs no key and array playback can be replayed with red
 test("recursive playback follows the captured call stack and return value", async ({
   page,
 }, testInfo) => {
+  await page.getByRole("button", { name: "Rename workspace" }).click();
+  await page.getByLabel("Workspace name").fill("Recursive factorial");
+  await page.getByRole("button", { name: "Save name" }).click();
   await page
     .getByRole("combobox", { name: "Load example" })
     .selectOption("recursion");
