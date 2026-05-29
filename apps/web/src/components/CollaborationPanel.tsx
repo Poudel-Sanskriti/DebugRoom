@@ -277,12 +277,12 @@ export default function CollaborationPanel({
       <div className="collaboration-heading">
         <div>
           <h2>
-            <Users size={17} /> Work through it together.
+            <Users size={17} /> Discuss this workspace
           </h2>
           <p>
             {isMentor
               ? "This mentor copy stays private until you share selected work."
-              : "Keep your question, observations, and feedback in one place."}
+              : "Student and mentor can edit, run, visualize, and comment in this shared copy."}
           </p>
         </div>
         <div className="collaboration-actions">
@@ -329,7 +329,7 @@ export default function CollaborationPanel({
         <div className="invitation-card">
           <div>
             <ShieldCheck size={15} />
-            <strong>Private student invitation</strong>
+            <strong>Shared workspace invitation</strong>
             <small>
               One use · expires {new Date(inviteExpiry).toLocaleDateString()}
             </small>
@@ -372,223 +372,231 @@ export default function CollaborationPanel({
             </button>
           </div>
         )}
-      <div className="investigation-grid">
-        <div className="investigation-notes">
-          <h3>
-            <BookOpen size={14} /> Your investigation{" "}
-            <span>{isMentor ? "mentor only" : "student copy"}</span>
-          </h3>
-          <label>
-            What do you think is happening?
-            <textarea
-              value={notes.hypothesis}
-              onChange={(e) => {
-                setNotes({ ...notes, hypothesis: e.target.value });
-                setNotesDirty(true);
-              }}
-              placeholder="Start with a hypothesis you can test."
-            />
-          </label>
-          <label>
-            What did the evidence show?
-            <textarea
-              value={notes.conclusion}
-              onChange={(e) => {
-                setNotes({ ...notes, conclusion: e.target.value });
-                setNotesDirty(true);
-              }}
-              placeholder="Record the observation and the next question."
-            />
-          </label>
-          <button
-            className="secondary"
-            disabled={busy || !notesDirty}
-            onClick={saveNotes}
-          >
-            <Check size={13} /> Save notes
-          </button>
-        </div>
-        <div className="feedback-area">
-          <div className="feedback-heading">
+      <details className="collaboration-section" open>
+        <summary>Questions and shared feedback</summary>
+        <div className="investigation-grid">
+          <div className="investigation-notes">
             <h3>
-              <MessageSquare size={14} /> Shared feedback
+              <BookOpen size={14} /> Your investigation{" "}
+              <span>{isMentor ? "mentor only" : "shared workspace"}</span>
             </h3>
-            {isTutor &&
-              (isMentor ? (
-                <button
-                  className="secondary"
-                  onClick={() => setDialog("share")}
-                >
-                  <Plus size={13} /> Share feedback
-                </button>
-              ) : (
-                <button
-                  className="secondary"
-                  onClick={openMentor}
-                  disabled={busy}
-                >
-                  <GitBranch size={13} /> Open mentor copy
-                </button>
-              ))}
+            <label>
+              What do you think is happening?
+              <textarea
+                value={notes.hypothesis}
+                onChange={(e) => {
+                  setNotes({ ...notes, hypothesis: e.target.value });
+                  setNotesDirty(true);
+                }}
+                placeholder="Start with a hypothesis you can test."
+              />
+            </label>
+            <label>
+              What did the evidence show?
+              <textarea
+                value={notes.conclusion}
+                onChange={(e) => {
+                  setNotes({ ...notes, conclusion: e.target.value });
+                  setNotesDirty(true);
+                }}
+                placeholder="Record the observation and the next question."
+              />
+            </label>
+            <button
+              className="secondary"
+              disabled={busy || !notesDirty}
+              onClick={saveNotes}
+            >
+              <Check size={13} /> Save notes
+            </button>
           </div>
-          {shares.length ? (
-            <div className="shared-list">
-              {shares.map((share) => (
-                <article className="shared-card" key={share.id}>
+          <div className="feedback-area">
+            <div className="feedback-heading">
+              <h3>
+                <MessageSquare size={14} /> Shared feedback
+              </h3>
+              {isTutor &&
+                (isMentor ? (
+                  <button
+                    className="secondary"
+                    onClick={() => setDialog("share")}
+                  >
+                    <Plus size={13} /> Share feedback
+                  </button>
+                ) : (
+                  <button
+                    className="secondary"
+                    onClick={openMentor}
+                    disabled={busy}
+                  >
+                    <GitBranch size={13} /> Open mentor copy
+                  </button>
+                ))}
+            </div>
+            {shares.length ? (
+              <div className="shared-list">
+                {shares.map((share) => (
+                  <article className="shared-card" key={share.id}>
+                    <div>
+                      <strong>{share.title}</strong>
+                      <span>
+                        {share.kind === "hint"
+                          ? "Question / hint"
+                          : share.kind === "selection"
+                            ? "Selected lines"
+                            : "Shared copy"}
+                      </span>
+                    </div>
+                    <p>{share.body}</p>
+                    {share.source && (
+                      <details>
+                        <summary>View shared source</summary>
+                        <pre>{share.source}</pre>
+                      </details>
+                    )}
+                    {share.kind === "full" && share.source !== null && (
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          model.edit({
+                            code: share.source!,
+                            input: share.input ?? draft.input,
+                            language: share.language,
+                            entryPoint: share.entryPoint,
+                            problem: share.problem ?? draft.problem,
+                          });
+                          onEditDraft();
+                        }}
+                      >
+                        Load into my draft →
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-feedback">
+                <MessageSquare size={24} />
+                <p>
+                  {isTutor
+                    ? "Share a question, a few selected lines, or a complete experiment."
+                    : "Feedback your tutor shares will appear here."}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </details>
+      <details className="collaboration-section">
+        <summary>Comments and saved test inputs</summary>
+        <div className="investigation-grid">
+          <div className="regression-cases">
+            <div className="feedback-heading">
+              <h3>
+                <FlaskGlyph /> Regression inputs
+              </h3>
+              <button className="secondary" onClick={() => setDialog("case")}>
+                <Plus size={13} /> Save current input
+              </button>
+            </div>
+            <p className="small-note">
+              Expected results are your notes, not an automatic grade.
+            </p>
+            {cases.length ? (
+              cases.map((item) => (
+                <div className="case-row" key={item.id}>
                   <div>
-                    <strong>{share.title}</strong>
+                    <strong>{item.name}</strong>
                     <span>
-                      {share.kind === "hint"
-                        ? "Question / hint"
-                        : share.kind === "selection"
-                          ? "Selected lines"
-                          : "Shared copy"}
+                      {item.expected || "No expected result recorded"}
                     </span>
                   </div>
-                  <p>{share.body}</p>
-                  {share.source && (
-                    <details>
-                      <summary>View shared source</summary>
-                      <pre>{share.source}</pre>
-                    </details>
-                  )}
-                  {share.kind === "full" && share.source !== null && (
-                    <button
-                      className="text-button"
-                      onClick={() => {
-                        model.edit({
-                          code: share.source!,
-                          input: share.input ?? draft.input,
-                          language: share.language,
-                          entryPoint: share.entryPoint,
-                          problem: share.problem ?? draft.problem,
-                        });
-                        onEditDraft();
-                      }}
-                    >
-                      Load into my draft →
-                    </button>
-                  )}
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      model.edit({ input: item.input });
+                      onEditDraft();
+                    }}
+                  >
+                    Use input →
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p className="small-note">
+                Keep an input that reproduces a bug or checks an edge case.
+              </p>
+            )}
+          </div>
+          <div className="line-comments">
+            <h3>
+              <MessageSquare size={14} /> Comments on source lines
+            </h3>
+            {model.run?.snapshot && (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void perform(async () => {
+                    await api(
+                      `/api/snapshots/${model.run!.snapshotId}/comments`,
+                      {
+                        method: "POST",
+                        body: { line: commentLine, body: commentBody },
+                      },
+                    );
+                    setCommentBody("");
+                    await refresh();
+                  });
+                }}
+              >
+                <label>
+                  Line{" "}
+                  <input
+                    type="number"
+                    aria-label="Comment source line"
+                    min={1}
+                    max={model.run.snapshot.code.split("\n").length}
+                    value={commentLine}
+                    onChange={(e) => setCommentLine(Number(e.target.value))}
+                  />
+                  <span>on run {model.run.id.slice(0, 8)}</span>
+                </label>
+                <textarea
+                  aria-label="Line comment"
+                  value={commentBody}
+                  onChange={(e) => setCommentBody(e.target.value)}
+                  placeholder="Ask a question or leave an observation."
+                />
+                <button
+                  className="secondary"
+                  disabled={busy || !commentBody.trim()}
+                >
+                  <Send size={12} /> Add comment
+                </button>
+              </form>
+            )}
+            {!model.run && (
+              <p className="small-note">
+                Select a run to attach feedback to its exact source.
+              </p>
+            )}
+            <div className="comments-list">
+              {comments.map((comment) => (
+                <article key={comment.id}>
+                  <div>
+                    <strong>{comment.author}</strong>
+                    <span>
+                      Line {comment.line} · revision {comment.revision}
+                      {comment.outdated ? " · older version" : ""}
+                    </span>
+                  </div>
+                  <p>{comment.body}</p>
                 </article>
               ))}
             </div>
-          ) : (
-            <div className="empty-feedback">
-              <MessageSquare size={24} />
-              <p>
-                {isTutor
-                  ? "Share a question, a few selected lines, or a complete experiment."
-                  : "Feedback your tutor shares will appear here."}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="investigation-grid lower">
-        <div className="regression-cases">
-          <div className="feedback-heading">
-            <h3>
-              <FlaskGlyph /> Regression inputs
-            </h3>
-            <button className="secondary" onClick={() => setDialog("case")}>
-              <Plus size={13} /> Save current input
-            </button>
-          </div>
-          <p className="small-note">
-            Expected results are your notes, not an automatic grade.
-          </p>
-          {cases.length ? (
-            cases.map((item) => (
-              <div className="case-row" key={item.id}>
-                <div>
-                  <strong>{item.name}</strong>
-                  <span>{item.expected || "No expected result recorded"}</span>
-                </div>
-                <button
-                  className="text-button"
-                  onClick={() => {
-                    model.edit({ input: item.input });
-                    onEditDraft();
-                  }}
-                >
-                  Use input →
-                </button>
-              </div>
-            ))
-          ) : (
-            <p className="small-note">
-              Keep an input that reproduces a bug or checks an edge case.
-            </p>
-          )}
-        </div>
-        <div className="line-comments">
-          <h3>
-            <MessageSquare size={14} /> Comments on source lines
-          </h3>
-          {model.run?.snapshot && (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void perform(async () => {
-                  await api(
-                    `/api/snapshots/${model.run!.snapshotId}/comments`,
-                    {
-                      method: "POST",
-                      body: { line: commentLine, body: commentBody },
-                    },
-                  );
-                  setCommentBody("");
-                  await refresh();
-                });
-              }}
-            >
-              <label>
-                Line{" "}
-                <input
-                  type="number"
-                  aria-label="Comment source line"
-                  min={1}
-                  max={model.run.snapshot.code.split("\n").length}
-                  value={commentLine}
-                  onChange={(e) => setCommentLine(Number(e.target.value))}
-                />
-                <span>on run {model.run.id.slice(0, 8)}</span>
-              </label>
-              <textarea
-                aria-label="Line comment"
-                value={commentBody}
-                onChange={(e) => setCommentBody(e.target.value)}
-                placeholder="Ask a question or leave an observation."
-              />
-              <button
-                className="secondary"
-                disabled={busy || !commentBody.trim()}
-              >
-                <Send size={12} /> Add comment
-              </button>
-            </form>
-          )}
-          {!model.run && (
-            <p className="small-note">
-              Select a run to attach feedback to its exact source.
-            </p>
-          )}
-          <div className="comments-list">
-            {comments.map((comment) => (
-              <article key={comment.id}>
-                <div>
-                  <strong>{comment.author}</strong>
-                  <span>
-                    Line {comment.line} · revision {comment.revision}
-                    {comment.outdated ? " · older version" : ""}
-                  </span>
-                </div>
-                <p>{comment.body}</p>
-              </article>
-            ))}
           </div>
         </div>
-      </div>
+      </details>
       {versions.some(
         (version) =>
           version.branchId === branch.id &&

@@ -109,7 +109,7 @@ button {
   padding-left: 29px;
 }
 .topbar-right {
-  margin-left: auto;
+  margin-left: 0;
   display: flex;
   align-items: center;
   gap: 25px;
@@ -144,6 +144,28 @@ button {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  transition: flex-basis 0.18s ease;
+}
+.workspace-sidebar.collapsed {
+  flex-basis: 54px;
+  padding: 16px 8px;
+  align-items: center;
+}
+.sidebar-toggle {
+  align-self: flex-end;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid #e0e6ef;
+  border-radius: 6px;
+  background: #fff;
+  color: #7185a1;
+  font-size: 11px;
+}
+.workspace-sidebar.collapsed .sidebar-toggle {
+  align-self: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
 }
 .sidebar-heading {
   display: flex;
@@ -336,6 +358,42 @@ h3 {
   gap: 20px;
   align-items: start;
 }
+.workspace.workspace-code,
+.workspace.workspace-visualize {
+  grid-template-columns: minmax(0, 1fr);
+}
+.workspace-code .code-editor,
+.workspace-code .editor-loading {
+  height: clamp(430px, 58vh, 720px);
+}
+.workspace-visualize .inspector {
+  width: 100%;
+  min-height: 560px;
+}
+.view-switcher {
+  display: flex;
+  flex-shrink: 0;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 7px;
+  background: #eff3f9;
+}
+.topbar > .view-switcher {
+  margin-left: auto;
+}
+.view-switcher button {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #7b8da7;
+  font-size: 11px;
+}
+.view-switcher button[aria-pressed="true"] {
+  background: #fff;
+  color: #3f659d;
+  box-shadow: 0 1px 4px #263d611a;
+}
 .workbench,
 .inspector {
   border: 1px solid var(--border);
@@ -351,6 +409,26 @@ h3 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+.workspace-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.context-toggle {
+  padding: 6px 8px;
+  border: 0;
+  border-left: 1px solid #e4e9f1;
+  border-radius: 0;
+  background: transparent;
+  color: #7a8da8;
+  font-size: 11px;
+}
+.context-toggle svg {
+  transition: transform 0.15s ease;
+}
+.context-toggle svg.open {
+  transform: rotate(180deg);
 }
 .source-tabs {
   display: flex;
@@ -448,11 +526,11 @@ h3 {
   font-size: 11px;
 }
 .code-editor {
-  height: 368px;
+  height: 430px;
   overflow: hidden;
 }
 .editor-loading {
-  height: 368px;
+  height: 430px;
   padding: 24px;
   color: #8da2c3;
   font-size: 14px;
@@ -470,6 +548,13 @@ h3 {
 }
 .input-panel {
   padding: 15px 19px 18px;
+}
+.run-panel {
+  padding: 13px 19px 18px;
+  border-top: 1px solid #edf1f7;
+}
+.run-panel .run-row {
+  margin-top: 0;
 }
 .input-heading {
   display: flex;
@@ -1468,7 +1553,7 @@ h3 {
   }
   .code-editor,
   .editor-loading {
-    height: 420px;
+    height: 500px;
   }
 }
 @media (max-width: 1200px) {
@@ -1575,6 +1660,12 @@ h3 {
   }
   .workspace-toolbar {
     padding: 12px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .workspace-toolbar-actions {
+    justify-content: space-between;
+    width: 100%;
   }
   .examples-select > svg {
     display: block;
@@ -1589,18 +1680,41 @@ h3 {
   .input-panel {
     padding: 14px 16px;
   }
+  .run-panel {
+    padding: 13px 16px 16px;
+  }
   .topbar {
     height: 68px;
+    padding: 0 12px;
+    gap: 10px;
   }
   .brand {
-    font-size: 21px;
+    font-size: 19px;
+  }
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    margin-right: 7px;
+  }
+  .topbar-right {
+    gap: 0;
   }
   .app-layout {
     min-height: calc(100vh - 68px);
   }
+  .topbar > .view-switcher button {
+    padding: 7px 9px;
+  }
+  .topbar > .view-switcher button span {
+    display: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   button {
+    transition: none;
+  }
+  .workspace-sidebar,
+  .context-toggle svg {
     transition: none;
   }
   .spin,
@@ -1635,6 +1749,36 @@ h3 {
   border: 1px solid var(--border);
   border-radius: 11px;
   padding: 23px;
+}
+.collaboration-section {
+  border-top: 1px solid #e7ecf3;
+  padding: 0;
+}
+.collaboration-section > summary {
+  position: relative;
+  padding: 16px 24px 16px 0;
+  list-style: none;
+  cursor: pointer;
+  color: #5e779b;
+  font-size: 12px;
+  font-weight: 600;
+}
+.collaboration-section > summary::-webkit-details-marker {
+  display: none;
+}
+.collaboration-section > summary::after {
+  content: "+";
+  position: absolute;
+  right: 4px;
+  color: #8da0ba;
+  font-size: 16px;
+  font-weight: 400;
+}
+.collaboration-section[open] > summary::after {
+  content: "−";
+}
+.collaboration-section > .investigation-grid {
+  padding: 2px 0 22px;
 }
 .collaboration-heading {
   display: flex;

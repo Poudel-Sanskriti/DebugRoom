@@ -51,22 +51,25 @@ export function useWorkspace() {
     workspaces: Workspace[];
   }> | null>(null);
 
-  const installBranch = useCallback((w: Workspace, b: Branch) => {
-    current.current = {
-      workspaceId: w.id,
-      branchId: b.id,
-      draft: b.draft,
-      saved: b.draft,
-      revision: b.revision,
-      confirmDirectEdit: false,
-    };
-    blocked.current = false;
-    setWorkspace(w);
-    setBranch(b);
-    setDraft(b.draft);
-    setSaveState("saved");
-    setError("");
-  }, []);
+  const installBranch = useCallback(
+    (w: Workspace, b: Branch, sharedTutorEdit = false) => {
+      current.current = {
+        workspaceId: w.id,
+        branchId: b.id,
+        draft: b.draft,
+        saved: b.draft,
+        revision: b.revision,
+        confirmDirectEdit: sharedTutorEdit,
+      };
+      blocked.current = false;
+      setWorkspace(w);
+      setBranch(b);
+      setDraft(b.draft);
+      setSaveState("saved");
+      setError("");
+    },
+    [],
+  );
   useEffect(() => {
     let alive = true;
     if (invitation || localAccess.current)
@@ -123,12 +126,14 @@ export function useWorkspace() {
         if (data.workspaces[0]) {
           const w = data.workspaces[0];
           const b =
-            w.branches.find((b) =>
-              data.session?.role === "tutor" && w.invitationActive
-                ? b.kind === "mentor"
-                : b.kind === "student",
-            ) ?? w.branches[0]!;
-          installBranch(w, b);
+            w.branches.find((b) => b.kind === "student") ?? w.branches[0]!;
+          installBranch(
+            w,
+            b,
+            data.session?.role === "tutor" &&
+              b.kind === "student" &&
+              w.invitationActive,
+          );
         }
         setLoading(false);
       })
@@ -324,16 +329,18 @@ export function useWorkspace() {
         const w = await api<Workspace>(`/api/workspaces/${id}`);
         const b =
           w.branches.find((b) => b.id === branchId) ??
-          w.branches.find((b) =>
-            session?.role === "tutor" && w.invitationActive
-              ? b.kind === "mentor"
-              : b.kind === "student",
-          ) ??
+          w.branches.find((b) => b.kind === "student") ??
           w.branches[0]!;
         runRequest.current++;
         setRun(null);
         setHistory([]);
-        installBranch(w, b);
+        installBranch(
+          w,
+          b,
+          session?.role === "tutor" &&
+            b.kind === "student" &&
+            w.invitationActive,
+        );
       } catch (error) {
         setError(message(error));
       }
@@ -420,11 +427,18 @@ export function useWorkspace() {
         `/api/workspaces/${current.current.workspaceId}`,
       );
       const b = w.branches.find((b) => b.id === current.current!.branchId)!;
-      installBranch(w, b);
+      installBranch(
+        w,
+        b,
+        current.current.confirmDirectEdit ||
+          (session?.role === "tutor" &&
+            b.kind === "student" &&
+            w.invitationActive),
+      );
     } catch (error) {
       setError(message(error));
     }
-  }, [installBranch]);
+  }, [installBranch, session?.role]);
   const retrySave = useCallback(() => {
     blocked.current = false;
     setError("");
@@ -467,10 +481,14 @@ export function useWorkspace() {
   }, []);
   const refreshWorkspace = useCallback(async () => {
     if (!current.current) return;
-    const w = await api<Workspace>(
-      `/api/workspaces/${current.current.workspaceId}`,
-    );
+    const workspaceId = current.current.workspaceId;
+    const [w, activity] = await Promise.all([
+      api<Workspace>(`/api/workspaces/${workspaceId}`),
+      api<{ runs: Run[] }>(`/api/workspaces/${workspaceId}/runs`),
+    ]);
     setWorkspace(w);
+    setHistory(activity.runs);
+    setHistoryHasMore(activity.runs.length === 100);
     const latest = w.branches.find((b) => b.id === current.current?.branchId);
     if (
       latest &&

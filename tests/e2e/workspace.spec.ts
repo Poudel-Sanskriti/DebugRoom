@@ -27,6 +27,7 @@ test.afterEach(async ({ page }) => {
 test("a learner runs Python, seeks through its trace, and keeps old input attached to the run", async ({
   page,
 }) => {
+  await expect(page).toHaveTitle("DebugRoom");
   await page
     .getByRole("combobox", { name: "Load example" })
     .selectOption("binary-search");
@@ -60,6 +61,7 @@ test("a learner runs Python, seeks through its trace, and keeps old input attach
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(timeline).toHaveValue("1");
   await expect(page.locator(".cm-trace-line")).toHaveCount(1);
+  await page.getByRole("button", { name: "Show input" }).click();
   const capturedInput = await page.getByLabel("Program input").inputValue();
   await page.getByRole("tab", { name: "Working draft" }).click();
   await page.getByLabel("Program input").fill('{"args":[[],11],"kwargs":{}}');
@@ -70,6 +72,7 @@ test("a learner runs Python, seeks through its trace, and keeps old input attach
   await expect(page.getByLabel("Program input")).toHaveValue(capturedInput);
   await page.reload();
   await expect(page.locator(".outcome-badge")).toHaveText("Completed");
+  await page.getByRole("button", { name: "Show input" }).click();
   await expect(page.getByLabel("Program input")).toHaveValue(capturedInput);
 });
 
@@ -77,7 +80,7 @@ test("an invitation opens a separate student view and revocation ends that sessi
   page,
   browser,
 }) => {
-  await page.getByRole("button", { name: "Feedback", exact: true }).click();
+  await page.getByRole("button", { name: "Discuss", exact: true }).click();
   await page
     .getByRole("button", { name: "Invite student", exact: true })
     .click();
@@ -94,7 +97,7 @@ test("an invitation opens a separate student view and revocation ends that sessi
       studentPage.getByRole("combobox", { name: "Choose branch" }),
     ).toHaveCount(0);
     await studentPage
-      .getByRole("button", { name: "Feedback", exact: true })
+      .getByRole("button", { name: "Discuss", exact: true })
       .click();
     await expect(
       studentPage.getByRole("button", { name: "Invite student" }),
@@ -130,6 +133,7 @@ test("fresh local entry needs no key and array playback can be replayed with red
   try {
     const freshPage = await fresh.newPage();
     await freshPage.goto("/");
+    await freshPage.getByRole("button", { name: "Show workspaces" }).click();
     await expect(
       freshPage.getByRole("button", { name: "Create workspace" }),
     ).toBeVisible();

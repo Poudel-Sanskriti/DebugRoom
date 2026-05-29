@@ -86,8 +86,9 @@ nodes before calling the algorithm. Their helper code stays in practice mode.
    vertical scrollbar.
 3. Edit the working input. The **Run snapshot** tab still shows the source and
    input that produced the earlier result.
-4. Open **Feedback** to create a student invitation, use the private mentor copy,
-   share selected lines or a question, and attach comments to a run's source.
+4. Open **Discuss** to create a shared-workspace invitation, use the optional
+   private mentor copy, share selected lines or a question, and attach comments
+   to a run's source.
 5. Use **History** to compare runs or export a full trace. Save useful regression
    inputs and investigation notes for another session.
 

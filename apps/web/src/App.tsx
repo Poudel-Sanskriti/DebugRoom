@@ -23,6 +23,9 @@ import {
   RotateCw,
   Users,
   Columns2,
+  Eye,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pencil,
 } from "lucide-react";
 import { useWorkspace } from "./hooks/useWorkspace";
@@ -68,18 +71,16 @@ export default function App() {
       { name: string; signature: string; line: number }[]
     >([]),
     [discoveryError, setDiscoveryError] = useState("");
-  const [showReload, setShowReload] = useState(false),
-    [showDirect, setShowDirect] = useState(false),
-    [directUnlocked, setDirectUnlocked] = useState(false);
+  const [showReload, setShowReload] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true),
+    [workspaceView, setWorkspaceView] = useState<
+      "code" | "split" | "visualize"
+    >("split"),
+    [showProgramContext, setShowProgramContext] = useState(false);
   const displayed =
     sourceView === "run" && run?.snapshot ? run.snapshot : draft;
   const pending = run?.status === "queued" || run?.status === "running";
-  const readonly =
-    sourceView === "run" ||
-    (workspace?.invitationActive &&
-      model.session?.role === "tutor" &&
-      branch?.kind === "student" &&
-      !directUnlocked);
+  const readonly = sourceView === "run";
   const event = run?.result?.steps[index];
   const highlight =
     sourceView === "run" || sameSource(draft, run?.snapshot)
@@ -90,7 +91,6 @@ export default function App() {
     if (run) setSourceView("run");
   }, [run?.id]);
   useEffect(() => {
-    setDirectUnlocked(false);
     setSourceView("draft");
   }, [branch?.id]);
   useEffect(() => {
@@ -112,14 +112,7 @@ export default function App() {
         .then((data) => {
           setFunctions(data.functions);
           setDiscoveryError(data.error?.message ?? "");
-          const canEdit = !(
-            workspace?.invitationActive &&
-            model.session?.role === "tutor" &&
-            branch?.kind === "student" &&
-            !directUnlocked
-          );
           if (
-            canEdit &&
             !data.error &&
             draft.entryPoint &&
             draft.entryPoint !== "__module__" &&
@@ -141,9 +134,6 @@ export default function App() {
     draft?.entryPoint,
     branch?.id,
     branch?.kind,
-    workspace?.invitationActive,
-    model.session?.role,
-    directUnlocked,
   ]);
   useEffect(() => {
     if (!workspace) return;
@@ -328,6 +318,26 @@ export default function App() {
           DebugRoom<span className="brand-dot">.</span>
         </a>
         <span className="workspace-label">YOUR THINKING SPACE</span>
+        <div className="view-switcher" role="group" aria-label="Workspace view">
+          <button
+            aria-pressed={workspaceView === "code"}
+            onClick={() => setWorkspaceView("code")}
+          >
+            <Code2 size={14} /> <span>Code</span>
+          </button>
+          <button
+            aria-pressed={workspaceView === "split"}
+            onClick={() => setWorkspaceView("split")}
+          >
+            <Columns2 size={14} /> <span>Together</span>
+          </button>
+          <button
+            aria-pressed={workspaceView === "visualize"}
+            onClick={() => setWorkspaceView("visualize")}
+          >
+            <Eye size={14} /> <span>Visualize</span>
+          </button>
+        </div>
         <div className="topbar-right">
           <span className="connection-badge">
             <ShieldCheck size={14} /> Isolated execution
@@ -362,45 +372,70 @@ export default function App() {
         </div>
       </header>
       <div className="app-layout">
-        <aside className="workspace-sidebar">
-          <div className="sidebar-heading">
-            <span>WORKSPACES</span>
-            {model.session.role === "tutor" && (
-              <button
-                className="icon-button"
-                aria-label="Create workspace"
-                title="Create workspace"
-                onClick={() => void model.createWorkspace()}
-              >
-                <Plus size={16} />
-              </button>
+        <aside
+          className={`workspace-sidebar ${sidebarCollapsed ? "collapsed" : ""}`}
+        >
+          <button
+            className="sidebar-toggle"
+            aria-label={
+              sidebarCollapsed ? "Show workspaces" : "Hide workspaces"
+            }
+            title={sidebarCollapsed ? "Show workspaces" : "Hide workspaces"}
+            onClick={() => setSidebarCollapsed((value) => !value)}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen size={17} />
+            ) : (
+              <PanelLeftClose size={17} />
             )}
-          </div>
-          <nav aria-label="Workspaces">
-            {model.workspaces.map((item) => (
-              <button
-                key={item.id}
-                className={`workspace-link ${workspace?.id === item.id ? "selected" : ""}`}
-                onClick={() => void model.chooseWorkspace(item.id)}
-              >
-                <FolderOpen size={16} />
-                <span>{item.title}</span>
-                {workspace?.id === item.id && <span className="selected-dot" />}
-              </button>
-            ))}
-          </nav>
-          <div className="sidebar-bottom">
-            <div className="sidebar-tip">
-              <FlaskConical size={18} />
-              <strong>Make a small change.</strong>
-              <p>A good experiment starts with one question.</p>
-            </div>
-            <span className="session-label">
-              {model.session.role === "tutor"
-                ? "Tutor & solo workspace"
-                : "Private student workspace"}
-            </span>
-          </div>
+            {!sidebarCollapsed && <span>Hide</span>}
+          </button>
+          {!sidebarCollapsed && (
+            <>
+              <div className="sidebar-heading">
+                <span>WORKSPACES</span>
+                {model.session.role === "tutor" && (
+                  <button
+                    className="icon-button"
+                    aria-label="Create workspace"
+                    title="Create workspace"
+                    onClick={() => void model.createWorkspace()}
+                  >
+                    <Plus size={16} />
+                  </button>
+                )}
+              </div>
+              <nav aria-label="Workspaces">
+                {model.workspaces.map((item) => (
+                  <button
+                    key={item.id}
+                    className={`workspace-link ${workspace?.id === item.id ? "selected" : ""}`}
+                    onClick={() => void model.chooseWorkspace(item.id)}
+                  >
+                    <FolderOpen size={16} />
+                    <span>{item.title}</span>
+                    {workspace?.id === item.id && (
+                      <span className="selected-dot" />
+                    )}
+                  </button>
+                ))}
+              </nav>
+              <div className="sidebar-bottom">
+                <div className="sidebar-tip">
+                  <FlaskConical size={18} />
+                  <strong>Make a small change.</strong>
+                  <p>A good experiment starts with one question.</p>
+                </div>
+                <span className="session-label">
+                  {branch?.kind === "mentor"
+                    ? "Private mentor workspace"
+                    : workspace?.invitationActive
+                      ? "Shared student + mentor workspace"
+                      : "Your personal workspace"}
+                </span>
+              </div>
+            </>
+          )}
         </aside>
         <main>
           <div className="page-heading">
@@ -436,7 +471,7 @@ export default function App() {
                 className={`secondary ${showCollaboration ? "selected" : ""}`}
                 onClick={() => setShowCollaboration((value) => !value)}
               >
-                <Users size={15} /> Feedback
+                <Users size={15} /> Discuss
               </button>
               <span
                 className={`save-indicator ${model.saveState}`}
@@ -496,7 +531,7 @@ export default function App() {
                     <option key={b.id} value={b.id}>
                       {b.kind === "mentor"
                         ? "Private mentor copy"
-                        : "Student copy"}
+                        : "Shared workspace"}
                     </option>
                   ))}
                 </select>
@@ -588,329 +623,345 @@ export default function App() {
             </section>
           )}
           {draft && displayed && (
-            <div className="workspace">
-              <section className="workbench" aria-label="Code and input">
-                {activeProblem && draft && (
-                  <ProblemStudyBar
-                    key={activeProblem.id}
-                    problem={activeProblem}
-                    draft={draft}
-                    disabled={
-                      !!(
-                        workspace?.invitationActive &&
-                        model.session.role === "tutor" &&
-                        branch?.kind === "student" &&
-                        !directUnlocked
-                      )
-                    }
-                    onInput={(input) => {
-                      model.edit({ input });
-                      setSourceView("draft");
-                      setBottomTab("input");
-                    }}
-                    onLibrary={() => setShowLibrary(true)}
-                  />
-                )}
-                <div className="workspace-toolbar">
-                  <div
-                    className="source-tabs"
-                    role="tablist"
-                    aria-label="Source view"
-                  >
-                    <button
-                      role="tab"
-                      aria-selected={sourceView === "draft"}
-                      className={sourceView === "draft" ? "active" : ""}
-                      onClick={() => setSourceView("draft")}
-                    >
-                      <Code2 size={14} /> Working draft
-                    </button>
-                    <button
-                      role="tab"
-                      aria-selected={sourceView === "run"}
-                      className={sourceView === "run" ? "active" : ""}
-                      disabled={!run?.snapshot}
-                      onClick={() => setSourceView("run")}
-                    >
-                      <History size={14} /> Run snapshot
-                    </button>
-                  </div>
-                  <label className="examples-select">
-                    <BookOpen size={14} />
-                    <select
-                      aria-label="Load example"
-                      value=""
-                      disabled={!!(readonly && sourceView === "draft")}
-                      onChange={(e) => loadExample(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        Examples
-                      </option>
-                      {examples
-                        .filter((item) =>
-                          model.config?.languages.includes(item.draft.language),
-                        )
-                        .map((item) => (
-                          <option value={item.id} key={item.id}>
-                            {item.title}
-                          </option>
-                        ))}
-                    </select>
-                    <ChevronDown size={12} />
-                  </label>
-                </div>
-                {sourceView === "run" && run?.snapshot ? (
-                  <div className="source-banner">
-                    <ShieldCheck size={14} />
-                    <span>
-                      Captured source · revision {run.snapshot.revision} ·
-                      read-only
-                    </span>
-                    <button onClick={() => setSourceView("draft")}>
-                      {sameSource(draft, run.snapshot)
-                        ? "Edit draft"
-                        : "Return to newer draft"}{" "}
-                      →
-                    </button>
-                  </div>
-                ) : workspace?.invitationActive &&
-                  model.session.role === "tutor" &&
-                  branch?.kind === "student" &&
-                  !directUnlocked ? (
-                  <div className="source-banner caution">
-                    <GitBranch size={14} />
-                    <span>This is the student copy.</span>
-                    <button onClick={() => setShowDirect(true)}>
-                      Unlock direct editing
-                    </button>
-                  </div>
-                ) : (
-                  <div className="draft-caption">
-                    <span>
-                      {branch?.name ?? "Workspace"}{" "}
-                      <span>· revision {branch?.revision ?? 0}</span>
-                    </span>
-                    <span>Changes save automatically</span>
-                  </div>
-                )}
-                <div className="editor-panel">
-                  <div className="editor-toolbar">
-                    <span>
-                      <FileCode2 size={14} />{" "}
-                      {displayed.language === "cpp" ? "main.cpp" : "main.py"}
-                    </span>
-                    {sourceView === "draft" ? (
-                      <select
-                        className="language-select"
-                        aria-label="Program language"
-                        value={draft.language}
-                        disabled={!!readonly}
-                        onChange={(e) =>
-                          model.edit({
-                            language: e.target.value as "python" | "cpp",
-                            entryPoint: null,
-                          })
-                        }
-                      >
-                        <option value="python">Python 3.14</option>
-                        {model.config?.languages.includes("cpp") && (
-                          <option value="cpp">C++20</option>
-                        )}
-                      </select>
-                    ) : (
-                      <span className="language">
-                        {displayed.language === "cpp"
-                          ? "C++20 · Clang 18"
-                          : "Python 3.14"}
-                      </span>
-                    )}
-                  </div>
-                  <Suspense
-                    fallback={
-                      <div className="editor-loading">Opening editor…</div>
-                    }
-                  >
-                    <CodeEditor
-                      key={`${branch?.id}-${sourceView}-${sourceView === "run" ? run?.id : ""}`}
-                      value={displayed.code}
-                      onChange={(code) => model.edit({ code })}
-                      activeLine={highlight}
-                      readOnly={!!readonly}
-                      language={displayed.language}
+            <div className={`workspace workspace-${workspaceView}`}>
+              {workspaceView !== "visualize" && (
+                <section className="workbench" aria-label="Code and input">
+                  {activeProblem && draft && (
+                    <ProblemStudyBar
+                      key={activeProblem.id}
+                      problem={activeProblem}
+                      draft={draft}
+                      disabled={false}
+                      onInput={(input) => {
+                        model.edit({ input });
+                        setSourceView("draft");
+                        setBottomTab("input");
+                      }}
+                      onLibrary={() => setShowLibrary(true)}
                     />
-                  </Suspense>
-                  <div className="editor-footer">
-                    <span>
-                      {displayed.code
-                        ? displayed.code.trimEnd().split("\n").length
-                        : 0}{" "}
-                      lines
-                    </span>
-                    <span>
-                      {highlight
-                        ? `Inspecting line ${highlight}`
-                        : sourceView === "run"
-                          ? "Captured source"
-                          : "Working draft"}
-                    </span>
-                    <span>UTF-8</span>
-                  </div>
-                </div>
-                <div className="input-panel">
-                  <div className="input-heading">
+                  )}
+                  <div className="workspace-toolbar">
                     <div
-                      className="bottom-tabs"
+                      className="source-tabs"
                       role="tablist"
-                      aria-label="Program context"
+                      aria-label="Source view"
                     >
                       <button
                         role="tab"
-                        aria-selected={bottomTab === "input"}
-                        className={bottomTab === "input" ? "active" : ""}
-                        onClick={() => setBottomTab("input")}
+                        aria-selected={sourceView === "draft"}
+                        className={sourceView === "draft" ? "active" : ""}
+                        onClick={() => setSourceView("draft")}
                       >
-                        <Terminal size={14} /> Input
+                        <Code2 size={14} /> Working draft
                       </button>
                       <button
                         role="tab"
-                        aria-selected={bottomTab === "problem"}
-                        className={bottomTab === "problem" ? "active" : ""}
-                        onClick={() => setBottomTab("problem")}
+                        aria-selected={sourceView === "run"}
+                        className={sourceView === "run" ? "active" : ""}
+                        disabled={!run?.snapshot}
+                        onClick={() => setSourceView("run")}
                       >
-                        <BookOpen size={14} /> Problem
+                        <History size={14} /> Run snapshot
                       </button>
                     </div>
-                    <span className="format-badge">
-                      {bottomTab === "input" ? "JSON" : "NOTES"}
-                    </span>
-                  </div>
-                  {bottomTab === "input" ? (
-                    <>
-                      <label className="sr-only" htmlFor="input">
-                        Program input
-                      </label>
-                      <textarea
-                        id="input"
-                        spellCheck={false}
-                        readOnly={!!readonly}
-                        value={displayed.input}
-                        onChange={(e) => model.edit({ input: e.target.value })}
-                      />
-                      <p className="input-help">
-                        {displayed.language === "cpp" ? (
-                          <>
-                            A standalone <code>main()</code> reads text from{" "}
-                            <code>stdin</code>. Keep <code>args</code> and{" "}
-                            <code>kwargs</code> empty.
-                          </>
-                        ) : (
-                          <>
-                            Pass positional values in <code>args</code> and
-                            named values in <code>kwargs</code>.
-                          </>
-                        )}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <label className="sr-only" htmlFor="problem">
-                        Problem description
-                      </label>
-                      <textarea
-                        id="problem"
-                        className="problem-notes"
-                        readOnly={!!readonly}
-                        value={displayed.problem}
-                        onChange={(e) =>
-                          model.edit({ problem: e.target.value })
-                        }
-                        placeholder="Describe the question, constraints, examples, and expected result."
-                      />
-                    </>
-                  )}
-                  <div className="run-row">
-                    <label className="entry-selector">
-                      <span>ENTRY POINT</span>
-                      <select
-                        aria-label="Entry function"
-                        value={
-                          sourceView === "run"
-                            ? (displayed.entryPoint ?? "")
-                            : (draft.entryPoint ?? "")
-                        }
-                        disabled={!!readonly || displayed.language === "cpp"}
-                        onChange={(e) =>
-                          model.edit({ entryPoint: e.target.value || null })
-                        }
-                      >
-                        <option value="">
-                          {displayed.language === "cpp"
-                            ? "main()"
-                            : sourceView === "run"
-                              ? "Automatic selection"
-                              : functions.length === 1
-                                ? `Auto · ${functions[0]!.name}()`
-                                : "Choose automatically"}
-                        </option>
-                        <option value="__module__">Run as a script</option>
-                        {sourceView === "run" &&
-                          displayed.entryPoint &&
-                          displayed.entryPoint !== "__module__" &&
-                          !functions.some(
-                            (fn) => fn.name === displayed.entryPoint,
-                          ) && (
-                            <option value={displayed.entryPoint}>
-                              {displayed.entryPoint}()
-                            </option>
-                          )}
-                        {functions.map((fn) => (
-                          <option key={fn.name} value={fn.name}>
-                            {fn.name}({fn.signature})
+                    <div className="workspace-toolbar-actions">
+                      <label className="examples-select">
+                        <BookOpen size={14} />
+                        <select
+                          aria-label="Load example"
+                          value=""
+                          disabled={sourceView === "run"}
+                          onChange={(e) => loadExample(e.target.value)}
+                        >
+                          <option value="" disabled>
+                            Examples
                           </option>
-                        ))}
-                      </select>
-                    </label>
-                    {pending ? (
+                          {examples
+                            .filter((item) =>
+                              model.config?.languages.includes(
+                                item.draft.language,
+                              ),
+                            )
+                            .map((item) => (
+                              <option value={item.id} key={item.id}>
+                                {item.title}
+                              </option>
+                            ))}
+                        </select>
+                        <ChevronDown size={12} />
+                      </label>
                       <button
-                        className="stop-button"
-                        onClick={() => void model.stopRun()}
+                        className="context-toggle"
+                        aria-expanded={showProgramContext}
+                        onClick={() => setShowProgramContext((value) => !value)}
                       >
-                        <Square size={13} fill="currentColor" /> Stop run
+                        {showProgramContext ? "Hide input" : "Show input"}
+                        <ChevronDown
+                          size={12}
+                          className={showProgramContext ? "open" : ""}
+                        />
                       </button>
-                    ) : (
-                      <button
-                        className="primary run-button"
-                        disabled={
-                          !draft.code.trim() ||
-                          model.submitting ||
-                          model.saveState === "conflict"
-                        }
-                        onClick={startRun}
-                      >
-                        <Play size={15} fill="currentColor" />{" "}
-                        {model.submitting
-                          ? "Starting…"
+                    </div>
+                  </div>
+                  {sourceView === "run" && run?.snapshot ? (
+                    <div className="source-banner">
+                      <ShieldCheck size={14} />
+                      <span>
+                        Captured source · revision {run.snapshot.revision} ·
+                        read-only
+                      </span>
+                      <button onClick={() => setSourceView("draft")}>
+                        {sameSource(draft, run.snapshot)
+                          ? "Edit draft"
+                          : "Return to newer draft"}{" "}
+                        →
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="draft-caption">
+                      <span>
+                        {branch?.kind === "mentor"
+                          ? "Private mentor copy"
+                          : workspace?.invitationActive
+                            ? "Shared workspace"
+                            : (branch?.name ?? "Workspace")}{" "}
+                        <span>· revision {branch?.revision ?? 0}</span>
+                      </span>
+                      <span>
+                        {branch?.kind === "student" &&
+                        workspace?.invitationActive
+                          ? "Student and mentor changes sync automatically"
+                          : "Changes save automatically"}
+                      </span>
+                    </div>
+                  )}
+                  <div className="editor-panel">
+                    <div className="editor-toolbar">
+                      <span>
+                        <FileCode2 size={14} />{" "}
+                        {displayed.language === "cpp" ? "main.cpp" : "main.py"}
+                      </span>
+                      {sourceView === "draft" ? (
+                        <select
+                          className="language-select"
+                          aria-label="Program language"
+                          value={draft.language}
+                          disabled={!!readonly}
+                          onChange={(e) =>
+                            model.edit({
+                              language: e.target.value as "python" | "cpp",
+                              entryPoint: null,
+                            })
+                          }
+                        >
+                          <option value="python">Python 3.14</option>
+                          {model.config?.languages.includes("cpp") && (
+                            <option value="cpp">C++20</option>
+                          )}
+                        </select>
+                      ) : (
+                        <span className="language">
+                          {displayed.language === "cpp"
+                            ? "C++20 · Clang 18"
+                            : "Python 3.14"}
+                        </span>
+                      )}
+                    </div>
+                    <Suspense
+                      fallback={
+                        <div className="editor-loading">Opening editor…</div>
+                      }
+                    >
+                      <CodeEditor
+                        key={`${branch?.id}-${sourceView}-${sourceView === "run" ? run?.id : ""}`}
+                        value={displayed.code}
+                        onChange={(code) => model.edit({ code })}
+                        activeLine={highlight}
+                        readOnly={!!readonly}
+                        language={displayed.language}
+                      />
+                    </Suspense>
+                    <div className="editor-footer">
+                      <span>
+                        {displayed.code
+                          ? displayed.code.trimEnd().split("\n").length
+                          : 0}{" "}
+                        lines
+                      </span>
+                      <span>
+                        {highlight
+                          ? `Inspecting line ${highlight}`
                           : sourceView === "run"
-                            ? "Run draft"
-                            : "Run code"}
-                        <kbd>⌘ ↵</kbd>
-                      </button>
+                            ? "Captured source"
+                            : "Working draft"}
+                      </span>
+                      <span>UTF-8</span>
+                    </div>
+                  </div>
+                  {showProgramContext && (
+                    <div className="input-panel">
+                      <div className="input-heading">
+                        <div
+                          className="bottom-tabs"
+                          role="tablist"
+                          aria-label="Program context"
+                        >
+                          <button
+                            role="tab"
+                            aria-selected={bottomTab === "input"}
+                            className={bottomTab === "input" ? "active" : ""}
+                            onClick={() => setBottomTab("input")}
+                          >
+                            <Terminal size={14} /> Input
+                          </button>
+                          <button
+                            role="tab"
+                            aria-selected={bottomTab === "problem"}
+                            className={bottomTab === "problem" ? "active" : ""}
+                            onClick={() => setBottomTab("problem")}
+                          >
+                            <BookOpen size={14} /> Problem
+                          </button>
+                        </div>
+                        <span className="format-badge">
+                          {bottomTab === "input" ? "JSON" : "NOTES"}
+                        </span>
+                      </div>
+                      {bottomTab === "input" ? (
+                        <>
+                          <label className="sr-only" htmlFor="input">
+                            Program input
+                          </label>
+                          <textarea
+                            id="input"
+                            spellCheck={false}
+                            readOnly={!!readonly}
+                            value={displayed.input}
+                            onChange={(e) =>
+                              model.edit({ input: e.target.value })
+                            }
+                          />
+                          <p className="input-help">
+                            {displayed.language === "cpp" ? (
+                              <>
+                                A standalone <code>main()</code> reads text from{" "}
+                                <code>stdin</code>. Keep <code>args</code> and{" "}
+                                <code>kwargs</code> empty.
+                              </>
+                            ) : (
+                              <>
+                                Pass positional values in <code>args</code> and
+                                named values in <code>kwargs</code>.
+                              </>
+                            )}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <label className="sr-only" htmlFor="problem">
+                            Problem description
+                          </label>
+                          <textarea
+                            id="problem"
+                            className="problem-notes"
+                            readOnly={!!readonly}
+                            value={displayed.problem}
+                            onChange={(e) =>
+                              model.edit({ problem: e.target.value })
+                            }
+                            placeholder="Describe the question, constraints, examples, and expected result."
+                          />
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <div className="run-panel">
+                    <div className="run-row">
+                      <label className="entry-selector">
+                        <span>ENTRY POINT</span>
+                        <select
+                          aria-label="Entry function"
+                          value={
+                            sourceView === "run"
+                              ? (displayed.entryPoint ?? "")
+                              : (draft.entryPoint ?? "")
+                          }
+                          disabled={!!readonly || displayed.language === "cpp"}
+                          onChange={(e) =>
+                            model.edit({ entryPoint: e.target.value || null })
+                          }
+                        >
+                          <option value="">
+                            {displayed.language === "cpp"
+                              ? "main()"
+                              : sourceView === "run"
+                                ? "Automatic selection"
+                                : functions.length === 1
+                                  ? `Auto · ${functions[0]!.name}()`
+                                  : "Choose automatically"}
+                          </option>
+                          <option value="__module__">Run as a script</option>
+                          {sourceView === "run" &&
+                            displayed.entryPoint &&
+                            displayed.entryPoint !== "__module__" &&
+                            !functions.some(
+                              (fn) => fn.name === displayed.entryPoint,
+                            ) && (
+                              <option value={displayed.entryPoint}>
+                                {displayed.entryPoint}()
+                              </option>
+                            )}
+                          {functions.map((fn) => (
+                            <option key={fn.name} value={fn.name}>
+                              {fn.name}({fn.signature})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {pending ? (
+                        <button
+                          className="stop-button"
+                          onClick={() => void model.stopRun()}
+                        >
+                          <Square size={13} fill="currentColor" /> Stop run
+                        </button>
+                      ) : (
+                        <button
+                          className="primary run-button"
+                          disabled={
+                            !draft.code.trim() ||
+                            model.submitting ||
+                            model.saveState === "conflict"
+                          }
+                          onClick={startRun}
+                        >
+                          <Play size={15} fill="currentColor" />{" "}
+                          {model.submitting
+                            ? "Starting…"
+                            : sourceView === "run"
+                              ? "Run draft"
+                              : "Run code"}
+                          <kbd>⌘ ↵</kbd>
+                        </button>
+                      )}
+                    </div>
+                    {discoveryError && sourceView === "draft" && (
+                      <p className="discovery-note">
+                        Function detection: {discoveryError}
+                      </p>
                     )}
                   </div>
-                  {discoveryError && sourceView === "draft" && (
-                    <p className="discovery-note">
-                      Function detection: {discoveryError}
-                    </p>
-                  )}
-                </div>
-              </section>
-              <TraceInspector
-                autoPlayRunId={watchRunId}
-                run={run}
-                index={index}
-                onIndex={setIndex}
-                onViewSource={viewRunSource}
-              />
+                </section>
+              )}
+              {workspaceView !== "code" && (
+                <TraceInspector
+                  autoPlayRunId={watchRunId}
+                  run={run}
+                  index={index}
+                  onIndex={setIndex}
+                  onViewSource={viewRunSource}
+                />
+              )}
             </div>
           )}
           {showCollaboration && (
@@ -1009,33 +1060,6 @@ export default function App() {
               }}
             >
               Reload saved draft
-            </button>
-          </div>
-        </Modal>
-      )}
-      {showDirect && (
-        <Modal
-          title="Edit the student copy directly?"
-          onClose={() => setShowDirect(false)}
-        >
-          <p className="dialog-description">
-            A snapshot of the student's current work will be preserved before
-            each of your saves. Your private mentor copy is the usual place for
-            experiments.
-          </p>
-          <div className="modal-actions">
-            <button className="secondary" onClick={() => setShowDirect(false)}>
-              Cancel
-            </button>
-            <button
-              className="primary"
-              onClick={() => {
-                setShowDirect(false);
-                setDirectUnlocked(true);
-                model.confirmDirectEdit();
-              }}
-            >
-              Preserve & unlock
             </button>
           </div>
         </Modal>

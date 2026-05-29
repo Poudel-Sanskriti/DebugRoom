@@ -130,6 +130,59 @@ async function loadAndRun() {
 }
 
 describe("real-run workspace UI", () => {
+  it("collapses navigation, switches focus, and hides program context", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("textbox", { name: "Program code" });
+
+    expect(
+      screen.queryByRole("navigation", { name: "Workspaces" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show workspaces" }));
+    expect(
+      screen.getByRole("navigation", { name: "Workspaces" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Code" }));
+    expect(
+      screen.queryByRole("region", { name: "Execution inspector" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Visualize" }));
+    expect(
+      screen.queryByRole("region", { name: "Code and input" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Execution inspector" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Together" }));
+    expect(screen.queryByLabelText("Program input")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show input" }));
+    expect(screen.getByLabelText("Program input")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Hide input" }));
+    expect(screen.queryByLabelText("Program input")).not.toBeInTheDocument();
+  });
+  it("opens an invited room in the editable shared workspace by default", async () => {
+    workspace.invitationActive = true;
+    workspace.branches.push({
+      id: "55555555-5555-4555-8555-555555555555",
+      name: "Mentor copy",
+      kind: "mentor",
+      revision: 0,
+      draft: { ...emptyDraft, code: 'print("private")' },
+      updatedAt: "2026-09-13T00:00:00Z",
+    });
+    render(<App />);
+    expect(
+      await screen.findByRole("textbox", { name: "Program code" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Choose branch" })).toHaveValue(
+      branchId,
+    );
+    expect(
+      screen.getByText("Student and mentor changes sync automatically"),
+    ).toBeInTheDocument();
+  });
   it("starts with an empty editable program and no fabricated trace", async () => {
     render(<App />);
     const editor = await screen.findByRole("textbox", { name: "Program code" });
@@ -184,6 +237,7 @@ describe("real-run workspace UI", () => {
   it("preserves the captured source while autosaving later edits", async () => {
     const user = await loadAndRun();
     await user.click(screen.getByRole("tab", { name: "Working draft" }));
+    await user.click(screen.getByRole("button", { name: "Show input" }));
     await user.click(screen.getByRole("tab", { name: "Input" }));
     await user.clear(screen.getByLabelText("Program input"));
     await user.paste('{"args":[[9]],"kwargs":{}}');

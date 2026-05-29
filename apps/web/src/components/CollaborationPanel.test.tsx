@@ -106,3 +106,18 @@ it("does not offer tutor controls in the student view", async () => {
     screen.queryByRole("button", { name: "Delete workspace" }),
   ).not.toBeInTheDocument();
 });
+it("keeps comments and saved inputs collapsed until they are needed", async () => {
+  const user = userEvent.setup();
+  render(
+    <CollaborationPanel model={model()} line={1} onEditDraft={() => {}} />,
+  );
+  expect(
+    await screen.findByText("Questions and shared feedback"),
+  ).toBeVisible();
+  const comments = screen.getByRole("heading", {
+    name: "Comments on source lines",
+  });
+  expect(comments).not.toBeVisible();
+  await user.click(screen.getByText("Comments and saved test inputs"));
+  expect(comments).toBeVisible();
+});
